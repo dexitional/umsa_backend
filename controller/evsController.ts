@@ -1,0 +1,544 @@
+import { Request, Response, NextFunction } from "express";
+// import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from '../prisma/client/ums'
+import path from "path";
+import fs from "fs";
+import moment from "moment";
+const evs = new PrismaClient()
+
+
+export default class EvsController {
+     
+   // Elections
+   async fetchElections(req: Request,res: Response) {
+      try {
+         const resp = await evs.election.findMany({ where: { status: true }, orderBy: { createdAt:'desc' } })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   } 
+
+   async fetchMyElections(req: Request,res: Response) {
+      try {
+         //const { tag } = req.params;
+         const tag = '24010001';
+         const en = await evs.election.findMany({
+            where: { voterData: { path:'$[*].tag', array_contains: tag }},
+         })
+         if(en?.length){
+            const resp:any = await Promise.all(en?.map(async (r:any) => {
+               const ts = await evs.elector.findMany({ where: { electionId: r.id } })
+               const rs = await evs.elector.findFirst({ where: { electionId: r.id, tag } })
+               return { ...r, turnout: ts.length, voters: ts, voteStatus: !!rs }
+            }))
+
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+  async fetchElection(req: Request,res: Response) {
+      try {
+         const resp:any = await evs.election.findUnique({
+            where: { id: Number(req.params.id) },
+         })
+         if(resp){
+            const ts:any = await evs.elector.count({ where: { electionId: Number(req.params.id) } })
+            const tm:any = await Promise.all(resp?.voterData?.map(async (r:any) => {
+               const ts = await evs.elector.findFirst({ where: { electionId: Number(req.params.id), tag: r?.tag } })
+               return { ...r, voteStatus: !!ts  }
+            }))
+            res.status(200).json({ ...resp, voterData: tm, turnout: ts })
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+  async postElection(req: Request,res: Response) {
+      try {
+         const resp = await evs.election.create({ data: req.body })
+         if(resp){
+            // Create Upload Folder
+            fs.mkdirSync(path.join(__dirname, "/../../public/cdn/evs")+`/${resp.id}`)
+            // Return Response Data
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no records found` })
+         }
+      
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async updateElection(req: Request,res: Response) {
+      try {
+      const resp = await evs.election.update({
+         where: { id: Number(req.params.id)},
+         data: req.body
+      })
+      if(resp){
+         res.status(200).json(resp)
+      } else {
+         res.status(204).json({ message: `No records found` })
+      }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async deleteElection(req: Request,res: Response) {
+      try {
+         const resp = await evs.election.delete({
+            where: {  id: Number(req.params.id)  }
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `No records found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   // Voters & Votes
+   async postVotes(req: Request,res: Response) {
+      try {
+         await evs.$transaction(async (tx:any) => {
+            
+            let { id,tag,votes,ip,location } = req.body;
+            //tag = '24010001';
+            tag = 'MKL/MLTT/20/013';
+            if(!tag)  throw new Error(`Request user not found`);
+            if(!id)  throw new Error(`Request ID not found`);
+
+            const en = await tx.election.findFirst({ 
+               where: { id, status: true, voterData: { path:'$[*].tag', array_contains: tag }},
+            })
+            if(en){
+               // Check Vote Status
+               const ev = await tx.elector.findFirst({  where: { electionId: id, tag } });
+               if(ev) throw new Error(`Elector already voted`);
+               // Check IF Election is still Opened for Grace Period
+               if(en.status && (en.action == 'STARTED' || (en.action == 'ENDED' && moment().diff(moment(en.endAt),'seconds') <= 120 ))){
+                  // Record Vote (IF not Voted)
+                  //const sels = votes.split(",");
+                  if(votes.length){
+                     const resp:any = await Promise.all(votes?.map(async (cid:any) => {
+                        return await tx.candidate.updateMany({ 
+                           where: { id: cid },
+                           data: { votes: { increment: 1 }}
+                        })  
+                     }))
+                     // Check Number of Recorded Votes
+                     if(resp.length != votes.length) throw new Error(`Vote Submission Disallowed`);
+                     // Record Voter
+                     const vs = en?.voterData?.find((r:any) => r.tag == tag);
+                     await tx.elector.create({
+                        data: {
+                           voteStatus: true,
+                           voteSum: Object.values(votes).join(","),
+                           voteTime: new Date(),
+                           voteIp: ip,
+                           name: vs?.name,
+                           tag,
+                           election: { connect: { id }}
+                        }
+                     })
+                     
+                     // Return Success Status
+                     res.status(200).json(resp)
+                  
+                  } else throw new Error(`Votes invalid`);
+
+               } else throw new Error(`Election is closed`);
+            } else throw new Error(`Elector not listed`);
+         })
+      
+      } catch (error: any) {
+         return res.status(203).json({ message: error.message }) 
+      }
+   }
+
+   async fetchVotes(req: Request,res: Response) {
+      try {
+         const { id } = req.params;
+         let portfolios = await evs.portfolio.findMany({ where: { electionId: Number(id) } })
+         const election = await evs.election.findUnique({ where: { id: Number(id) }})
+         const electors = await evs.elector.findMany({ where: { electionId: Number(id) } })
+         if(election && portfolios){
+            portfolios = await Promise.all(portfolios?.map(async (r:any) => {
+               const candidates = await evs.candidate.findMany({ where: { status: true, portfolioId: r.id }, include:{ portfolio:{ select: { electionId: true }}}, orderBy: [{ votes: 'desc'},{ orderNo: 'asc'}]})
+               return { ...r, candidates }
+            }))
+            res.status(200).json({ election,portfolios,electors })
+         } else {
+            res.status(204).json({ message: `no records found` })
+         }
+      
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+
+   async fetchVoters(req: Request,res: Response) {
+      try {
+         const resp = await evs.election.findUnique({
+            where: { id: Number(req.params.id)},
+            select: { voterData: true }
+         })
+         if(resp){
+            // Check Mask on vote Status
+            res.status(200).json(resp?.voterData)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+  async fetchVoter(req: Request,res: Response) {
+      try {
+         const { tag } = req.params
+         const resp = await evs.election.findUnique({ 
+            where: { id: Number(req.params.id)},
+         })
+         if(resp){
+            const voterData:any = resp?.voterData;
+            const voter:any = voterData?.find((r:any) => r.tag == tag)
+            // Check Vote Status
+            const vs = await evs.elector.findFirst({ where: { electionId: Number(req.params.id), tag }})
+            // Return Response
+            res.status(200).json({ ...resp, voter, voteStatus: !!vs })
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async postVoter(req: Request,res: Response) {
+      try {
+         const { tag,name } = req.body
+         const resp = await evs.election.update({ 
+            where: { id: Number(req.params.id)},
+            data: { 
+               voterData: { 
+                  // jsonb_build_object: { tag, name } 
+                  jsonb_set: { 
+                     path: '$',
+                     value: { tag, name },
+                     append: true
+                  } 
+               } 
+            }
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async deleteVoter(req: Request,res: Response) {
+      try {
+         const { tag } = req.params
+         const resp = await evs.election.update({ 
+            where: { 
+               id: Number(req.params.id),
+               voterData: { path:'$.tag', array_contains: tag }
+            },
+            data: { 
+            voterData: { jsonb_remove: {  path: '$[*]' } } 
+            }
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   // Receipt or Transcript
+   async fetchReceipt(req: Request,res: Response) {
+      try {
+         const { tag,id } = req.params
+         const resp = await evs.elector.findFirst({ 
+            where: { tag, electionId: Number(req.params.id) },
+         })
+         if(resp){
+
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   // Portfolios
+   async fetchPortfolios(req: Request,res: Response) {
+      try {
+         const resp = await evs.portfolio.findMany({ where: { electionId: Number(req.params.id) }})
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no records found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async fetchPortfolio(req: Request,res: Response) {
+      try {
+         const resp = await evs.portfolio.findUnique({
+            where: { 
+               id: Number(req.params.id)
+            },
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+  async postPortfolio(req: Request,res: Response) {
+      try {
+         const resp = await evs.portfolio.create({ data: req.body })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no records found` })
+         }
+      
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async updatePortfolio(req: Request,res: Response) {
+      try {
+      const resp = await evs.portfolio.update({
+         where: { id: Number(req.params.id)},
+         data: req.body
+      })
+      if(resp){
+         res.status(200).json(resp)
+      } else {
+         res.status(204).json({ message: `No records found` })
+      }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async deletePortfolio(req: Request,res: Response) {
+      try {
+         const resp = await evs.portfolio.delete({
+            where: {  id: Number(req.params.id)  }
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `No records found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+   
+
+   // Candidates
+   async fetchCandidates(req: Request,res: Response) {
+      try {
+         const resp = await evs.candidate.findMany({ where: { portfolioId: Number(req.params.id) }})
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no records found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async fetchCandidate(req: Request,res: Response) {
+      try {
+         const resp = await evs.candidate.findUnique({
+            where: { 
+               id: Number(req.params.id)
+            },
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+  async postCandidate(req: Request,res: Response) {
+      try {
+         const photo:any = req?.files?.photo;
+         const resp = await evs.candidate.create({ data: req.body , include: { portfolio: true }})
+         if(resp){
+            // Upload Photo
+            const tag = resp?.id;
+            const eid = resp?.portfolio?.electionId;
+            const dest = path.join(__dirname,"/../../public/cdn/photo/evs"+eid,(tag?.toString()?.trim()?.toLowerCase())+".jpg");
+            photo.mv(dest, function(err:any) {
+                if (err) return res.status(500).send(err);
+            })
+            // Return Response
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no records found` })
+         }
+      
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async updateCandidate(req: Request,res: Response) {
+      try {
+         const photo:any = req?.files?.photo;
+         const resp = await evs.candidate.update({
+            where: { id: Number(req.params.id)},
+            data: req.body,
+            include: { portfolio: true }
+         })
+         if(resp){
+            // Upload Photo
+            const tag = resp?.id;
+            const eid = resp?.portfolio?.electionId;
+            const dest = path.join(__dirname,"/../../public/cdn/photo/evs"+eid,(tag?.toString()?.trim()?.toLowerCase())+".jpg");
+            photo.mv(dest, function(err:any) {
+               if (err) return res.status(500).send(err);
+            })
+            // Return Response
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `No records found` })
+         }
+      } catch (error: any) {
+            console.log(error)
+            return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async deleteCandidate(req: Request,res: Response) {
+      try {
+         const resp = await evs.candidate.delete({
+            where: {  id: Number(req.params.id)  }
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `No records found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+
+
+
+   async postEvsData(req: Request,res: Response) {
+      try {
+         const resp = await evs.session.findMany({ where: { status: true }, orderBy: { title:'asc' } })
+         if(resp){
+         res.status(200).json(resp)
+         } else {
+         res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async fetchEvsMonitor(req: Request,res: Response) {
+      try {
+         const resp = await evs.session.findMany({ where: { status: true }, orderBy: { title:'asc' } })
+         if(resp){
+         res.status(200).json(resp)
+         } else {
+         res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async fetchEvsData(req: Request,res: Response) {
+      try {
+         const resp = await evs.session.findMany({ where: { status: true }, orderBy: { title:'asc' } })
+         if(resp){
+         res.status(200).json(resp)
+         } else {
+         res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+    
+ 
+   
+}

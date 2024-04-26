@@ -25,6 +25,7 @@ export default class AuthController {
            // Locate Single-Sign-On Record or Student account
            //const isUser = await Auth.withCredential(username, password);
            const isUser:any = await sso.user.findFirst({ where: { username, password: sha1(password)}, include: { group: { select: { title: true }}}});
+           console.log(isUser)
            const isApplicant:any = await sso.voucher.findFirst({ where: { serial: username, pin: password }, include: { admission: true }});
            if (isUser) {
                 let { id, tag, groupId, group: { title: groupName } } = isUser;
@@ -43,15 +44,35 @@ export default class AuthController {
                 }
                 const photo = `https://cdn.ucc.edu.gh/photos/?tag=${encodeURIComponent(tag)}`;
                 const roles:any = await sso.userRole.findMany({ where: { userId: id }, include: { appRole: { select: { title: true, app: true }}}});
-           
-                //let roles:any = []; // All App Roles
-                // let evsRoles = await Auth.fetchEvsRoles(tag); // Only Electa Roles
+                const evsRoles:any = await sso.election.findMany({
+                  where: { 
+                    status: true, 
+                    OR: [
+                      { voterData: { path:'$[*].tag', array_contains: tag } },
+                      { admins: { path:'$[*]', array_contains: tag } },
+                    ]
+                  },
+                  select: { id: true, title: true, admins: true  }
+                })
                 // Construct UserData
                 const userdata: any = {
                   user,
-                  roles: [...roles ],
+                  roles: [
+                    ...roles,
+                    ...(evsRoles?.length && evsRoles?.map((r:any) => ({ 
+                          id:r.id,
+                          isAdmin: !!(r.admins.find((m:any) => m.toLowerCase() == tag.toLowerCase())), 
+                          appRole: { 
+                            app: {
+                              tag:'evs', title: r.title
+                            }
+                          }
+                        })
+                      ))
+                  ],
                   photo
                 }
+                console.log(userdata)
                 // Generate Session Token & 
                 const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60});
                 // Send Response to Client

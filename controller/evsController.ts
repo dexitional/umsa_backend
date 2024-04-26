@@ -26,8 +26,8 @@ export default class EvsController {
 
    async fetchMyElections(req: Request,res: Response) {
       try {
-         //const { tag } = req.params;
-         const tag = '24010001';
+         const { tag } = req.params;
+         //const tag = '24010001';
          const en = await evs.election.findMany({
             where: { voterData: { path:'$[*].tag', array_contains: tag }},
          })
@@ -127,7 +127,7 @@ export default class EvsController {
             
             let { id,tag,votes,ip,location } = req.body;
             //tag = '24010001';
-            tag = 'MKL/MLTT/20/013';
+            //tag = 'MKL/MLTT/20/013';
             if(!tag)  throw new Error(`Request user not found`);
             if(!id)  throw new Error(`Request ID not found`);
 

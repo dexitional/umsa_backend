@@ -40,8 +40,8 @@ class EvsController {
     fetchMyElections(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                //const { tag } = req.params;
-                const tag = '24010001';
+                const { tag } = req.params;
+                //const tag = '24010001';
                 const en = yield evs.election.findMany({
                     where: { voterData: { path: '$[*].tag', array_contains: tag } },
                 });
@@ -155,7 +155,7 @@ class EvsController {
                     var _a;
                     let { id, tag, votes, ip, location } = req.body;
                     //tag = '24010001';
-                    tag = 'MKL/MLTT/20/013';
+                    //tag = 'MKL/MLTT/20/013';
                     if (!tag)
                         throw new Error(`Request user not found`);
                     if (!id)

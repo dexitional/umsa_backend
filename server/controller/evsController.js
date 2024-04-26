@@ -43,7 +43,13 @@ class EvsController {
                 const { tag } = req.params;
                 //const tag = '24010001';
                 const en = yield evs.election.findMany({
-                    where: { voterData: { path: '$[*].tag', array_contains: tag } },
+                    where: {
+                        status: true,
+                        OR: [
+                            { voterData: { path: '$[*].tag', array_contains: tag } },
+                            { admins: { path: '$[*]', array_contains: tag } },
+                        ]
+                    },
                 });
                 if (en === null || en === void 0 ? void 0 : en.length) {
                     const resp = yield Promise.all(en === null || en === void 0 ? void 0 : en.map((r) => __awaiter(this, void 0, void 0, function* () {

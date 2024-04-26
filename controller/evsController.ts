@@ -29,7 +29,13 @@ export default class EvsController {
          const { tag } = req.params;
          //const tag = '24010001';
          const en = await evs.election.findMany({
-            where: { voterData: { path:'$[*].tag', array_contains: tag }},
+            where: {
+              status: true, 
+              OR: [
+                  { voterData: { path:'$[*].tag', array_contains: tag } },
+                  { admins: { path:'$[*]', array_contains: tag } },
+               ]
+         },
          })
          if(en?.length){
             const resp:any = await Promise.all(en?.map(async (r:any) => {

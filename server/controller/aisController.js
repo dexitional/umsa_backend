@@ -418,11 +418,13 @@ class AisController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { studentId } = req.body;
+                console.log(studentId);
                 const password = pwdgen();
                 const resp = yield ais.user.updateMany({
                     where: { tag: studentId },
                     data: { password: sha1(password) },
                 });
+                console.log(resp);
                 if (resp === null || resp === void 0 ? void 0 : resp.count) {
                     res.status(200).json({ password });
                 }
@@ -3222,7 +3224,7 @@ class AisController {
                 // const courses:any = require('../../util/courses2.json');
                 //  const students = require('../../util/student2.json');
                 //  const staff = require('../../util/staff.json');
-                const scores = require('../../util/aucc_users.json');
+                const scores = require('../../util/us4.json');
                 // if(courses.length){
                 //   for(const course of courses){
                 //      console.log(course)
@@ -3509,6 +3511,24 @@ class AisController {
                 //              username: subj?.username, 
                 //              password: subj?.password, 
                 //          }
+                //       })
+                //    }
+                //  }
+                // if(scores.length){
+                //    for(const subj of scores){
+                //       console.log(subj)
+                //       const ins = await ais.user.upsert({
+                //           where: { tag: subj?.tag },
+                //           create: {
+                //              groupId: Number(subj?.group_id), 
+                //              tag: subj?.tag, 
+                //              username: subj?.username, 
+                //              password: subj?.password, 
+                //          },
+                //          update: {
+                //             username: subj?.username, 
+                //             password: subj?.password, 
+                //         }
                 //       })
                 //    }
                 //  }

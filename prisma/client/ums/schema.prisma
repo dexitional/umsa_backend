@@ -1733,7 +1733,7 @@ model group {
 model user {
   id        Int      @id @default(autoincrement())
   groupId   Int
-  tag       String   @db.VarChar(50)
+  tag       String   @unique @db.VarChar(50)
   username  String   @db.VarChar(50)
   password  String   @db.VarChar(50)
   unlockPin String?  @db.VarChar(4)

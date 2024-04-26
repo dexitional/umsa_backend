@@ -201,7 +201,7 @@ export default class AuthController {
           if(isUser){
              const ups = await sso.user.updateMany({
                 where: { tag },
-                 data:{ password: sha1(newpassword) }
+                data:{ password: sha1(newpassword) }
              })
              res.status(200).json(ups)
           } else {

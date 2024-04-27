@@ -20,9 +20,11 @@ const sso = new ums_1.PrismaClient();
 const jwt = require('jsonwebtoken');
 const { customAlphabet } = require("nanoid");
 const nanoid = customAlphabet("1234567890abcdefghijklmnopqrstuvwzyx", 8);
+const pin = customAlphabet("1234567890", 4);
 const sha1 = require('sha1');
 const path = require('path');
 const fs = require("fs");
+const sms = require("../config/sms");
 const Auth = new authModel_1.default();
 class AuthController {
     authenticateWithCredential(req, res) {
@@ -30,13 +32,14 @@ class AuthController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { username, password } = req.body;
+                console.log(req.body);
                 if (!username)
                     throw new Error('No username provided!');
                 if (!password)
                     throw new Error('No password provided!');
                 // Locate Single-Sign-On Record or Student account
                 //const isUser = await Auth.withCredential(username, password);
-                const isUser = yield sso.user.findFirst({ where: { username, password: sha1(password) }, include: { group: { select: { title: true } } } });
+                const isUser = yield sso.user.findFirst({ where: { username, OR: [{ password: sha1(password) }, { unlockPin: password }] }, include: { group: { select: { title: true } } } });
                 console.log(isUser);
                 const isApplicant = yield sso.voucher.findFirst({ where: { serial: username, pin: password }, include: { admission: true } });
                 if (isUser) {
@@ -213,18 +216,121 @@ class AuthController {
                 const isUser = yield sso.user.findFirst({
                     where: {
                         username: tag,
-                        password: sha1(oldpassword)
+                        password: sha1(oldpassword),
                     }
                 });
                 if (isUser) {
                     const ups = yield sso.user.updateMany({
                         where: { tag },
-                        data: { password: sha1(newpassword) }
+                        data: { password: sha1(newpassword), unlockPin: newpassword }
                     });
                     res.status(200).json(ups);
                 }
                 else {
                     res.status(202).json({ message: `Wrong password provided!` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* SSO Management */
+    /* Send Student Pin */
+    sendStudentPin(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { tag } = req.params;
+                const user = yield sso.user.findFirst({ where: { groupId: 1, status: true, tag } });
+                if (user) {
+                    const st = yield sso.student.findUnique({ where: { id: tag } });
+                    const msg = `Please Access https://ums.aucc.edu.gh with USERNAME: ${user.username}, PIN: ${user.unlockPin}. Note that you can use 4-digit PIN as PASSWORD`;
+                    let resp;
+                    if (st && (st === null || st === void 0 ? void 0 : st.phone)) {
+                        resp = yield sms(st === null || st === void 0 ? void 0 : st.phone, msg);
+                    }
+                    else {
+                        resp = { code: 1002 };
+                    }
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `Invalid request!` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Send Student Pins */
+    sendStudentPins(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const users = yield sso.user.findMany({ where: { groupId: 1, status: true } });
+                if (users === null || users === void 0 ? void 0 : users.length) {
+                    const resp = yield Promise.all(users === null || users === void 0 ? void 0 : users.map((row) => __awaiter(this, void 0, void 0, function* () {
+                        const st = yield sso.student.findUnique({ where: { id: row === null || row === void 0 ? void 0 : row.tag } });
+                        const msg = `Please Access https://ums.aucc.edu.gh with USERNAME: ${row.username}, PIN: ${row.unlockPin}. Note that you can use 4-digit PIN as PASSWORD`;
+                        if (st && (st === null || st === void 0 ? void 0 : st.phone))
+                            return yield sms(st.phone, msg);
+                        return { code: 1002 };
+                    })));
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `Invalid request!` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Reset Student Pins  */
+    resetStudentPins(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const users = yield sso.user.findMany({
+                    where: { groupId: 1, status: true }
+                });
+                if (users === null || users === void 0 ? void 0 : users.length) {
+                    const resp = yield Promise.all(users === null || users === void 0 ? void 0 : users.map((row) => __awaiter(this, void 0, void 0, function* () {
+                        return yield sso.user.update({
+                            where: { id: row === null || row === void 0 ? void 0 : row.id },
+                            data: { unlockPin: pin() }
+                        });
+                    })));
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `Invalid request!` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Reset Student Pins  */
+    resetStudentPin(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { tag } = req.params;
+                const user = yield sso.user.findFirst({ where: { groupId: 1, status: true, tag } });
+                if (user) {
+                    const resp = yield sso.user.updateMany({
+                        where: { tag },
+                        data: { unlockPin: pin() }
+                    });
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `Invalid request!` });
                 }
             }
             catch (error) {

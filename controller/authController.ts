@@ -8,9 +8,11 @@ const sso = new PrismaClient()
 const jwt = require('jsonwebtoken');
 const { customAlphabet } = require("nanoid");
 const nanoid = customAlphabet("1234567890abcdefghijklmnopqrstuvwzyx", 8);
+const pin = customAlphabet("1234567890", 4);
 const sha1 = require('sha1');
 const path = require('path');
 const fs = require("fs");
+const sms = require("../config/sms");
 
 
 const Auth = new AuthModel();
@@ -20,11 +22,12 @@ export default class AuthController {
     async authenticateWithCredential(req: Request,res: Response) {
         try {
            const { username, password }:{ username: string, password: string } = req.body;
+           console.log(req.body)
            if(!username) throw new Error('No username provided!');
            if(!password) throw new Error('No password provided!');
            // Locate Single-Sign-On Record or Student account
            //const isUser = await Auth.withCredential(username, password);
-           const isUser:any = await sso.user.findFirst({ where: { username, password: sha1(password)}, include: { group: { select: { title: true }}}});
+           const isUser:any = await sso.user.findFirst({ where: { username, OR: [{ password: sha1(password) },{ unlockPin: password }]}, include: { group: { select: { title: true }}}});
            console.log(isUser)
            const isApplicant:any = await sso.voucher.findFirst({ where: { serial: username, pin: password }, include: { admission: true }});
            if (isUser) {
@@ -195,13 +198,13 @@ export default class AuthController {
           const isUser = await sso.user.findFirst({
              where: {
                 username: tag,
-                password: sha1(oldpassword)
+                password: sha1(oldpassword),
              }
           })
           if(isUser){
              const ups = await sso.user.updateMany({
                 where: { tag },
-                data:{ password: sha1(newpassword) }
+                data:{ password: sha1(newpassword),unlockPin: newpassword }
              })
              res.status(200).json(ups)
           } else {
@@ -213,6 +216,99 @@ export default class AuthController {
              return res.status(500).json({ message: error.message }) 
        }
    }
+
+   /* SSO Management */
+    
+   /* Send Student Pin */
+    async sendStudentPin(req: Request,res: Response) {
+      try {
+        const { tag } = req.params;
+        const user = await sso.user.findFirst({ where: { groupId: 1, status: true, tag } })
+        if(user){
+          const st = await sso.student.findUnique({ where: { id: tag }});
+          const msg = `Please Access https://ums.aucc.edu.gh with USERNAME: ${user.username}, PIN: ${user.unlockPin}. Note that you can use 4-digit PIN as PASSWORD`
+          let resp;
+          if(st && st?.phone) {
+            resp = await sms(st?.phone,msg);
+          } else {
+            resp = { code: 1002 }
+          }
+          res.status(200).json(resp)
+
+        } else {
+            res.status(202).json({ message: `Invalid request!` })
+        }
+            
+         } catch (error: any) {
+               console.log(error)
+               return res.status(500).json({ message: error.message }) 
+         }
+     }
+
+     /* Send Student Pins */
+     async sendStudentPins(req: Request,res: Response) {
+      try {
+            const users = await sso.user.findMany({ where: { groupId: 1, status: true } })
+            if(users?.length){
+                const resp:any = await Promise.all(users?.map(async (row:any) => {
+                  const st = await sso.student.findUnique({ where: { id: row?.tag }});
+                  const msg = `Please Access https://ums.aucc.edu.gh with USERNAME: ${row.username}, PIN: ${row.unlockPin}. Note that you can use 4-digit PIN as PASSWORD`
+                  if(st && st?.phone) return await sms(st.phone,msg);
+                  return { code: 1002 }
+                }))
+                res.status(200).json(resp)
+            } else {
+                res.status(202).json({ message: `Invalid request!` })
+            }
+        } catch (error: any) {
+            console.log(error)
+            return res.status(500).json({ message: error.message }) 
+        }
+    }
+
+    /* Reset Student Pins  */
+    async resetStudentPins(req: Request,res: Response) {
+      try {
+          const users = await sso.user.findMany({
+              where: { groupId: 1, status: true }
+          })
+          if(users?.length){
+              const resp:any = await Promise.all(users?.map(async (row:any) => {
+                return await sso.user.update({ 
+                    where: { id: row?.id },
+                    data:{ unlockPin: pin() }
+                })
+              }))
+              res.status(200).json(resp)
+          } else {
+              res.status(202).json({ message: `Invalid request!` })
+          }
+        } catch (error: any) {
+              console.log(error)
+              return res.status(500).json({ message: error.message }) 
+        }
+     }
+
+      /* Reset Student Pins  */
+    async resetStudentPin(req: Request,res: Response) {
+      try {
+            const { tag } = req.params;
+            const user = await sso.user.findFirst({ where: { groupId: 1, status: true, tag } })
+            if(user){
+              const resp:any =  await sso.user.updateMany({ 
+                where: { tag },
+                data:{ unlockPin: pin() }
+              })
+              res.status(200).json(resp)
+            } else {
+               res.status(202).json({ message: `Invalid request!` })
+            }
+            
+         } catch (error: any) {
+               console.log(error)
+               return res.status(500).json({ message: error.message }) 
+         }
+     }
 
   /* Photo Management */
   // async fetchPhoto(req: Request,res: Response) {

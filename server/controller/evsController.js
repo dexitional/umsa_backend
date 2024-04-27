@@ -289,6 +289,36 @@ class EvsController {
             }
         });
     }
+    setupVoters(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const en = yield evs.election.findUnique({ where: { id: Number(req.params.id) } });
+                if (en) {
+                    const list = en === null || en === void 0 ? void 0 : en.voterList;
+                    if (list === null || list === void 0 ? void 0 : list.length) {
+                        const voters = yield Promise.all(list === null || list === void 0 ? void 0 : list.map((r) => __awaiter(this, void 0, void 0, function* () {
+                            const ts = en.groupId == 1
+                                ? yield evs.student.findFirst({ where: { id: r } })
+                                : yield evs.staff.findFirst({ where: { staffNo: r } });
+                            const us = yield evs.user.findFirst({ where: { tag: r } });
+                            return ({ tag: (ts === null || ts === void 0 ? void 0 : ts.id) || (ts === null || ts === void 0 ? void 0 : ts.staffNo), name: `${ts.fname} ${ts.mname && ts.mname + ' '}${ts.lname}`, username: us === null || us === void 0 ? void 0 : us.username, pin: us === null || us === void 0 ? void 0 : us.unlockPin });
+                        })));
+                        const resp = yield evs.election.update({
+                            where: { id: Number(req.params.id) },
+                            data: { voterData: voters }
+                        });
+                        // Return Response
+                        return res.status(200).json(resp);
+                    }
+                }
+                return res.status(202).json({ message: `Voter register not populated` });
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
     postVoter(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {

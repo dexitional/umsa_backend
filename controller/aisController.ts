@@ -368,7 +368,7 @@ export default class AisController {
         const password = pwdgen();
         const isUser = await ais.user.findFirst({ where: { tag: studentId }})
         if(isUser) throw("Student Portal Account Exists!")
-        const ssoData = { tag:studentId, username:studentId, password:sha1(password) }  // Others
+        const ssoData = { tag:studentId, username:studentId, password:sha1(password), unlockPin: password }  // Others
          // Populate SSO Account
          const resp = await ais.user.create({
             data: {
@@ -395,7 +395,7 @@ export default class AisController {
         const password = pwdgen();
         const resp = await ais.user.updateMany({
             where: { tag: studentId },
-            data: { password: sha1(password)},
+            data: { password: sha1(password), unlockPin: password },
         })
         console.log(resp)
         if(resp?.count){

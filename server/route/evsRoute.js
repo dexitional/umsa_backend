@@ -22,6 +22,7 @@ class EvsRoute {
         this.router.get("/elections/:id/data", this.controller.fetchVotes);
         this.router.post("/elections/:id/data", this.controller.postVotes);
         this.router.post("/elections/:id/voters", this.controller.postVoter);
+        this.router.get("/elections/:id/setup", this.controller.setupVoters);
         this.router.get("/elections/:id/voters/:tag", this.controller.fetchVoter);
         this.router.delete("/elections/:id/voters/:tag", this.controller.deleteVoter);
         // this.router.get("/elections/:id/admins", this.controller.fetchAdmins);

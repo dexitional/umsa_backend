@@ -248,6 +248,35 @@ export default class EvsController {
       }
    }
 
+   async setupVoters(req: Request,res: Response) {
+      try {
+        const en = await evs.election.findUnique({ where: { id: Number(req.params.id) }});
+        if(en){
+           const list:any = en?.voterList;
+           if(list?.length){
+              const voters = await Promise.all(list?.map(async (r:any) => {
+                  const ts:any = en.groupId == 1 
+                     ? await evs.student.findFirst({ where: { id: r } })
+                     : await evs.staff.findFirst({ where: { staffNo: r } });
+                  const us = await evs.user.findFirst({ where: { tag: r } })
+                  return ({ tag: ts?.id || ts?.staffNo, name: `${ts.fname} ${ts.mname && ts.mname+' '}${ts.lname}`, username: us?.username, pin: us?.unlockPin })
+              }));
+              const resp = await evs.election.update({ 
+                  where: { id: Number(req.params.id)},
+                  data: { voterData: voters }
+              })
+              // Return Response
+              return res.status(200).json(resp)
+           } 
+        } 
+        return res.status(202).json({ message: `Voter register not populated` })
+         
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
    async postVoter(req: Request,res: Response) {
       try {
          const { tag,name } = req.body

@@ -22,6 +22,12 @@ class AuthRoute {
        this.router.post('/photos', this.controller.postPhoto);
        this.router.post('/photos/rotate', this.controller.rotatePhoto);
        this.router.delete('/photos/:id', this.controller.removePhoto);
+       /* SSO Pin Management */
+       this.router.post('/pins/generate', this.controller.resetStudentPins);
+       this.router.post('/pins/generate/:tag', this.controller.resetStudentPin);
+       this.router.get('/pins/send', this.controller.sendStudentPins);
+       this.router.get('/pins/send/:tag', this.controller.sendStudentPin);
+       
     }
 
 }

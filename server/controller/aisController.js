@@ -396,7 +396,7 @@ class AisController {
                 const isUser = yield ais.user.findFirst({ where: { tag: studentId } });
                 if (isUser)
                     throw ("Student Portal Account Exists!");
-                const ssoData = { tag: studentId, username: studentId, password: sha1(password) }; // Others
+                const ssoData = { tag: studentId, username: studentId, password: sha1(password), unlockPin: password }; // Others
                 // Populate SSO Account
                 const resp = yield ais.user.create({
                     data: Object.assign(Object.assign({}, ssoData), { group: { connect: { id: 1 } } }),
@@ -422,7 +422,7 @@ class AisController {
                 const password = pwdgen();
                 const resp = yield ais.user.updateMany({
                     where: { tag: studentId },
-                    data: { password: sha1(password) },
+                    data: { password: sha1(password), unlockPin: password },
                 });
                 console.log(resp);
                 if (resp === null || resp === void 0 ? void 0 : resp.count) {

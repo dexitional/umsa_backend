@@ -213,7 +213,7 @@ export default class AmsController {
   async fetchVouchers(req: Request,res: Response) {
       const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
       const offset = (page - 1) * pageSize;
-      let searchCondition = { }
+      let searchCondition:any = { where: { admission: { default: true } } }
       try {
          if(keyword) searchCondition = { 
             where: { 
@@ -1361,6 +1361,8 @@ export default class AmsController {
          })
          
          if(resp){
+            // Update Applicant with ProfileId
+            await ams.applicant.update({ where: { serial }, data: { profile: { connect: { serial }}} })
             res.status(200).json(resp)
          } else {
             res.status(204).json({ message: `no record found` })

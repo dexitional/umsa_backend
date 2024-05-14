@@ -379,8 +379,8 @@ model course {
   id            String        @id
   title         String        @db.VarChar(450)
   creditHour    Int
-  theoryHour    Int
-  practicalHour Int
+  theoryHour    Int?
+  practicalHour Int?
   remark        courseRemark?
   status        Boolean       @default(true)
   createdAt     DateTime      @default(now())
@@ -396,12 +396,14 @@ model course {
 
 model major {
   id        String   @id @default(uuid())
+  programId String?
   shortName String?  @db.VarChar(255)
   longName  String?  @db.VarChar(355)
   status    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  program    program?     @relation(fields: [programId], references: [id])
   student    student[]
   structure  structure[]
   sheet      sheet[]
@@ -444,6 +446,7 @@ model program {
   bill       bill[]
   fresher    fresher[]
   stepChoice stepChoice[]
+  major      major[]
 
   @@map("ais_program")
 }
@@ -452,9 +455,9 @@ model student {
   id                String             @id @unique
   indexno           String?            @unique @db.VarChar(50)
   titleId           String?
-  fname             String             @db.VarChar(255)
+  fname             String?             @db.VarChar(255)
   mname             String?            @db.VarChar(350)
-  lname             String             @db.VarChar(255)
+  lname             String?             @db.VarChar(255)
   gender            String?            @db.VarChar(20)
   dob               DateTime?          @db.DateTime(3)
   maritalId         String?
@@ -492,7 +495,7 @@ model student {
   instituteEmail    String?            @db.VarChar(350)
   instituteAffliate String?            @db.VarChar(350)
   flagPardon        Boolean            @default(false)
-  accountNet        Float              @default(0) @db.Float
+  accountNet        Float?             @default(0) @db.Float
 
   title       title?      @relation(fields: [titleId], references: [id])
   nationality country?    @relation("studentNationality", fields: [nationalityId], references: [id])
@@ -524,7 +527,7 @@ model session {
   id              String          @id @default(uuid())
   tag             String?         @default("main") @db.VarChar(50)
   title           String          @db.VarChar(255)
-  year            Int?            @db.Int
+  year            String?         @db.VarChar(50)
   semester        semesterNumbers
   registerStart   DateTime?
   registerEnd     DateTime?
@@ -1262,7 +1265,7 @@ model admissionLetter {
 model voucher {
   serial         String    @id
   pin            String
-  admissionId    String
+  admissionId    String?
   vendorId       String?
   categoryId     String?
   sellType       Int?
@@ -1586,7 +1589,7 @@ model stepReferee {
 
 model election {
   id             Int           @id @default(autoincrement())
-  groupId        Int
+  groupId        Int?
   type           String        @db.VarChar(300)
   title          String?       @db.VarChar(450)
   tag            String?       @db.VarChar(100)
@@ -1602,6 +1605,7 @@ model election {
   allowResult    Boolean       @default(false)
   allowEcResult  Boolean       @default(false)
   allowMask      Boolean       @default(false)
+  autoStop       Boolean       @default(false)
   startAt        DateTime?
   endAt          DateTime?
   action         EvsActionType @default(STAGED)
@@ -1609,6 +1613,7 @@ model election {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
+  group     group?      @relation(fields: [groupId], references: [id])
   portfolio portfolio[]
   elector   elector[]
   attack    attack[]
@@ -1725,7 +1730,8 @@ model group {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user user[]
+  user     user[]
+  election election[]
 
   @@map("sso_group")
 }
@@ -1733,7 +1739,7 @@ model group {
 model user {
   id        Int      @id @default(autoincrement())
   groupId   Int
-  tag       String   @db.VarChar(50)
+  tag       String   @unique @db.VarChar(50)
   username  String   @db.VarChar(50)
   password  String   @db.VarChar(50)
   unlockPin String?  @db.VarChar(4)
@@ -1742,7 +1748,7 @@ model user {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  group    group?     @relation(fields: [groupId], references: [id])
+  group    group?     @relation(fields: [groupId], references: [id], onDelete: NoAction)
   userRole userRole[]
   provider provider[]
 
@@ -1758,8 +1764,8 @@ model userRole {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user    user?    @relation(fields: [userId], references: [id])
-  appRole appRole? @relation(fields: [appRoleId], references: [id])
+  user    user?    @relation(fields: [userId], references: [id], onDelete: NoAction)
+  appRole appRole? @relation(fields: [appRoleId], references: [id], onDelete: NoAction)
 
   @@map("sso_urole")
 }
@@ -1773,7 +1779,7 @@ model provider {
   accountSecret String?
   status        Boolean     @default(true)
 
-  user user? @relation(fields: [userId], references: [id])
+  user user? @relation(fields: [userId], references: [id], onDelete: NoAction)
 
   @@map("sso_provider")
 }
@@ -1797,15 +1803,15 @@ model support {
 // HRS - HUMAN RESOURCE MANAGEMENT  MODELS
 
 model job {
-  id              String        @id @default(uuid())
-  title           String        @db.VarChar(255)
+  id              String         @id @default(uuid())
+  title           String         @db.VarChar(255)
   type            jobType
   yearsToNextRank Int?
-  allowNextRank   Boolean       @default(true)
-  staffCategory   staffCategory
-  status          Boolean       @default(true)
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  allowNextRank   Boolean        @default(true)
+  staffCategory   staffCategory?
+  status          Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
   promotion promotion[]
   staff     staff[]
@@ -1929,7 +1935,7 @@ model staff {
   dob             DateTime? @db.DateTime(3)
   maritalId       String?
   disabilities    String?   @db.VarChar(350)
-  phone           String    @db.VarChar(20)
+  phone           String?   @db.VarChar(20)
   email           String?   @db.VarChar(255)
   hometown        String?   @db.VarChar(255)
   birthplace      String?   @db.VarChar(255)

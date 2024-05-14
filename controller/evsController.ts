@@ -10,6 +10,48 @@ const evs = new PrismaClient()
 export default class EvsController {
      
    // Elections
+   async fetchAdminElections(req: Request,res: Response) {
+      const { page = 1, pageSize = 6, keyword = '' } :any = req.query;
+      const offset = (page - 1) * pageSize;
+      let searchCondition = { }
+      try {
+         if(keyword) searchCondition = { 
+            where: { 
+               OR: [
+                  { title: { contains: keyword } },
+                  //{ id: { contains: keyword } },
+               ],
+            },
+         }
+         const resp = await evs.$transaction([
+            evs.election.count({
+               ...(searchCondition),
+            }),
+            evs.election.findMany({
+               ...(searchCondition),
+               include: { 
+                  group: true,
+               }, 
+               skip: offset,
+               take: Number(pageSize),
+            })
+         ]);
+         
+         if(resp && resp[1]?.length){
+            res.status(200).json({
+               totalPages: Math.ceil(resp[0]/pageSize) ?? 0,
+               totalData: resp[1]?.length,
+               data: resp[1],
+            })
+         } else {
+            res.status(204).json({ message: `no records found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
    async fetchElections(req: Request,res: Response) {
       try {
          const resp = await evs.election.findMany({ where: { status: true }, orderBy: { createdAt:'desc' } })
@@ -58,10 +100,11 @@ export default class EvsController {
       try {
          const resp:any = await evs.election.findUnique({
             where: { id: Number(req.params.id) },
+            include: { group: true }, 
          })
          if(resp){
             const ts:any = await evs.elector.count({ where: { electionId: Number(req.params.id) } })
-            const tm:any = await Promise.all(resp?.voterData?.map(async (r:any) => {
+            const tm:any = resp?.voterData && await Promise.all(resp?.voterData?.map(async (r:any) => {
                const ts = await evs.elector.findFirst({ where: { electionId: Number(req.params.id), tag: r?.tag } })
                return { ...r, voteStatus: !!ts  }
             }))
@@ -77,10 +120,33 @@ export default class EvsController {
 
   async postElection(req: Request,res: Response) {
       try {
-         const resp = await evs.election.create({ data: req.body })
+         const data = req.body;
+            delete data?.logo;
+            if(data?.startAt) data.startAt = moment(data.startAt)
+            if(data?.endAt) data.endAt = moment(data?.endAt)
+            if(data?.groupId) data.groupId = Number(data?.groupId)
+            if(data?.voterList) data.voterList = JSON.parse(data?.voterList)
+            if(data?.status) data.status = !!data?.status
+            if(data?.allowMonitor) data.allowMonitor = !!data?.allowMonitor
+            if(data?.allowVip) data.allowVip = !!data?.allowVip
+            if(data?.allowResult) data.allowResult = !!data?.allowResult
+            if(data?.allowMask) data.allowMask = !!data?.allowMask
+            if(data?.allowEcMonitor) data.allowEcMonitor = !!data?.allowEcMonitor
+            if(data?.allowEcVip) data.allowEcVip = !!data?.allowEcVip
+            if(data?.allowEcResult) data.allowEcResult = !!data?.allowEcResult
+            if(data?.autoStop) data.autoStop = !!data?.autoStop
+         const logo:any = req?.files?.logo;
+         const resp = await evs.election.create({ data: data })
          if(resp){
             // Create Upload Folder
             fs.mkdirSync(path.join(__dirname, "/../../public/cdn/evs")+`/${resp.id}`)
+            // Upload Logo
+            const eid = resp?.id;
+            const dest = path.join(__dirname,"/../../public/cdn/photo/evs/",(eid?.toString()?.trim()?.toLowerCase())+".png");
+            if(logo)
+            logo.mv(dest, function(err:any) {
+               if (err) console.log(err);
+            })
             // Return Response Data
             res.status(200).json(resp)
          } else {
@@ -91,15 +157,38 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async updateElection(req: Request,res: Response) {
+  async updateElection(req: Request,res: Response) {
       try {
+      const data:any = req.body;
+         delete data?.logo;
+         if(data?.startAt) data.startAt = moment(data.startAt)
+         if(data?.endAt) data.endAt = moment(data?.endAt)
+         if(data?.groupId) data.groupId = Number(data?.groupId)
+         if(data?.voterList) data.voterList = JSON.parse(data?.voterList)
+         if(data?.status) data.status = !!data?.status
+         if(data?.allowMonitor) data.allowMonitor = !!data?.allowMonitor
+         if(data?.allowVip) data.allowVip = !!data?.allowVip
+         if(data?.allowResult) data.allowResult = !!data?.allowResult
+         if(data?.allowMask) data.allowMask = !!data?.allowMask
+         if(data?.allowEcMonitor) data.allowEcMonitor = !!data?.allowEcMonitor
+         if(data?.allowEcVip) data.allowEcVip = !!data?.allowEcVip
+         if(data?.allowEcResult) data.allowEcResult = !!data?.allowEcResult
+         if(data?.autoStop) data.autoStop = !!data?.autoStop
+      const logo:any = req?.files?.logo;
       const resp = await evs.election.update({
          where: { id: Number(req.params.id)},
-         data: req.body
+         data: data
       })
       if(resp){
+         // Upload Logo
+         const eid = resp?.id;
+         const dest = path.join(__dirname,"/../../public/cdn/photo/evs/",(eid?.toString()?.trim()?.toLowerCase())+".png");
+         if(logo)
+         logo.mv(dest, function(err:any) {
+            if (err) console.log(err);
+         })
          res.status(200).json(resp)
       } else {
          res.status(204).json({ message: `No records found` })
@@ -108,9 +197,9 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async deleteElection(req: Request,res: Response) {
+  async deleteElection(req: Request,res: Response) {
       try {
          const resp = await evs.election.delete({
             where: {  id: Number(req.params.id)  }
@@ -124,10 +213,86 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   // Voters & Votes
-   async postVotes(req: Request,res: Response) {
+  // Action
+  async actionReset(req: Request,res: Response) {
+      try {
+         const { electionId } = req.body;
+         // Reset Candidates votes
+         await evs.candidate.updateMany({ 
+            where: { portfolio: { electionId: Number(electionId) }},
+            data: { votes: 0}
+         })
+         // Delete Voted Users
+         const resp = await evs.elector.deleteMany({ 
+            where: { electionId: Number(electionId) }
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no records found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+  async actionAdmin(req: Request,res: Response) {
+      try {
+         const { tag,electionId } = req.body
+         const election:any = await evs.election.findUnique({ where: { id: Number(electionId) }})
+         if(election){
+             const { admins } = election;
+             const vt = admins.find((r:any) => r?.toLowerCase() == tag?.toLowerCase())
+             let newAdmins;
+             if(vt){
+               newAdmins = admins.filter((r:any) => r?.toLowerCase() != tag?.toLowerCase())
+             }else{
+               newAdmins = [...admins, tag ]
+             }
+
+             const resp = await evs.election.update({ 
+               where: { id: Number(electionId)},
+               data: { 
+                  admins: newAdmins
+               }
+            })
+
+            if(resp){
+               return res.status(200).json(resp)
+            } else {
+               return res.status(202).json({ message: `No record found!` })
+            }
+         }
+         else  return res.status(202).json({ message: `Election not staged!` })
+        
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+  async actionVoters(req: Request,res: Response) {
+      try {
+         const resp = await evs.election.create({ data: req.body })
+         if(resp){
+            // Create Upload Folder
+            fs.mkdirSync(path.join(__dirname, "/../../public/cdn/evs")+`/${resp.id}`)
+            // Return Response Data
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no records found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+  // Voters & Votes
+  async postVotes(req: Request,res: Response) {
       try {
          await evs.$transaction(async (tx:any) => {
             
@@ -174,18 +339,18 @@ export default class EvsController {
                      // Return Success Status
                      res.status(200).json(resp)
                   
-                  } else throw new Error(`Votes invalid`);
+                  } else throw new Error(`Votes invalid!`);
 
-               } else throw new Error(`Election is closed`);
-            } else throw new Error(`Elector not listed`);
+               } else throw new Error(`Election is closed!`);
+            } else throw new Error(`Elector not qualified!`);
          })
       
       } catch (error: any) {
          return res.status(203).json({ message: error.message }) 
       }
-   }
+  }
 
-   async fetchVotes(req: Request,res: Response) {
+  async fetchVotes(req: Request,res: Response) {
       try {
          const { id } = req.params;
          let portfolios = await evs.portfolio.findMany({ where: { electionId: Number(id) } })
@@ -205,10 +370,9 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-
-   async fetchVoters(req: Request,res: Response) {
+  async fetchVoters(req: Request,res: Response) {
       try {
          const resp = await evs.election.findUnique({
             where: { id: Number(req.params.id)},
@@ -246,11 +410,11 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async setupVoters(req: Request,res: Response) {
+  async setupVoters(req: Request,res: Response) {
       try {
-        const en = await evs.election.findUnique({ where: { id: Number(req.params.id) }});
+        const en = await evs.election.findUnique({ where: { id: Number(req.body.electionId) }});
         if(en){
            const list:any = en?.voterList;
            if(list?.length){
@@ -259,10 +423,10 @@ export default class EvsController {
                      ? await evs.student.findFirst({ where: { id: r } })
                      : await evs.staff.findFirst({ where: { staffNo: r } });
                   const us = await evs.user.findFirst({ where: { tag: r } })
-                  return ({ tag: ts?.id || ts?.staffNo, name: `${ts.fname} ${ts.mname && ts.mname+' '}${ts.lname}`, username: us?.username, pin: us?.unlockPin })
+                  return ({ tag: ts?.id || ts?.staffNo, name: `${ts?.fname} ${ts?.mname && ts?.mname+' '}${ts?.lname}`, username: us?.username, pin: us?.unlockPin, phone: ts?.phone })
               }));
               const resp = await evs.election.update({ 
-                  where: { id: Number(req.params.id)},
+                  where: { id: Number(req.body.electionId)},
                   data: { voterData: voters }
               })
               // Return Response
@@ -275,9 +439,9 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async postVoter(req: Request,res: Response) {
+  async postVoter(req: Request,res: Response) {
       try {
          const { tag,name } = req.body
          const resp = await evs.election.update({ 
@@ -302,9 +466,9 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async deleteVoter(req: Request,res: Response) {
+  async deleteVoter(req: Request,res: Response) {
       try {
          const { tag } = req.params
          const resp = await evs.election.update({ 
@@ -325,10 +489,10 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   // Receipt or Transcript
-   async fetchReceipt(req: Request,res: Response) {
+  // Receipt or Transcript
+  async fetchReceipt(req: Request,res: Response) {
       try {
          const { tag,id } = req.params
          const resp = await evs.elector.findFirst({ 
@@ -344,12 +508,18 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   // Portfolios
-   async fetchPortfolios(req: Request,res: Response) {
+  // Portfolios
+  async fetchPortfolios(req: Request,res: Response) {
       try {
-         const resp = await evs.portfolio.findMany({ where: { electionId: Number(req.params.id) }})
+         const resp = await evs.portfolio.findMany({ 
+            where: { electionId: Number(req.params.id) },
+            include: {
+               _count: { select: { candidate: true } },
+               election: true
+            }
+         })
          if(resp){
             res.status(200).json(resp)
          } else {
@@ -359,16 +529,14 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async fetchPortfolio(req: Request,res: Response) {
+  async fetchPortfolioList(req: Request,res: Response) {
       try {
-         const resp = await evs.portfolio.findUnique({
-            where: { 
-               id: Number(req.params.id)
-            },
+         const resp = await evs.portfolio.findMany({
+            where: { status: true, electionId: Number(req.query.electionId) }
          })
-         if(resp){
+         if(resp?.length){
             res.status(200).json(resp)
          } else {
             res.status(204).json({ message: `no record found` })
@@ -377,6 +545,23 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
+  }
+
+  async fetchPortfolio(req: Request,res: Response) {
+   try {
+      const resp = await evs.portfolio.findUnique({
+         where: { id: Number(req.params.id) },
+         include: { _count: { select: { candidate: true }}}
+      })
+      if(resp){
+         res.status(200).json(resp)
+      } else {
+         res.status(204).json({ message: `no record found` })
+      }
+   } catch (error: any) {
+      console.log(error)
+      return res.status(500).json({ message: error.message }) 
+   }
   }
 
   async postPortfolio(req: Request,res: Response) {
@@ -392,9 +577,9 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async updatePortfolio(req: Request,res: Response) {
+  async updatePortfolio(req: Request,res: Response) {
       try {
       const resp = await evs.portfolio.update({
          where: { id: Number(req.params.id)},
@@ -409,10 +594,11 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async deletePortfolio(req: Request,res: Response) {
+  async deletePortfolio(req: Request,res: Response) {
       try {
+         console.log(`delete ID: ${req.params.id}`)
          const resp = await evs.portfolio.delete({
             where: {  id: Number(req.params.id)  }
          })
@@ -425,11 +611,10 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
    
-
-   // Candidates
-   async fetchCandidates(req: Request,res: Response) {
+  // Candidates
+  async fetchCandidates(req: Request,res: Response) {
       try {
          const resp = await evs.candidate.findMany({ where: { portfolioId: Number(req.params.id) }})
          if(resp){
@@ -441,14 +626,13 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async fetchCandidate(req: Request,res: Response) {
+  async fetchCandidate(req: Request,res: Response) {
       try {
          const resp = await evs.candidate.findUnique({
-            where: { 
-               id: Number(req.params.id)
-            },
+            where: { id: Number(req.params.id) },
+            include: { portfolio: { select: { electionId: true }}}
          })
          if(resp){
             res.status(200).json(resp)
@@ -463,15 +647,28 @@ export default class EvsController {
 
   async postCandidate(req: Request,res: Response) {
       try {
+         const { portfolioId } = req.body
+         const lastCandidate:any = await evs.candidate.findFirst({ where: { portfolioId: Number(portfolioId) }, orderBy: { 'orderNo': 'desc' }})
+         let data = req.body;
+            delete data.photo;  delete data.portfolioId;
+            data.orderNo = data.orderNo > 0 ? Number(data.orderNo) : (lastCandidate?.orderNo+1) ;
+            data.tag = data?.name?.split(" ")[0]?.trim()?.toLowerCase();
+            data.status = !!data.status
          const photo:any = req?.files?.photo;
-         const resp = await evs.candidate.create({ data: req.body , include: { portfolio: true }})
+         const resp = await evs.candidate.create({ 
+            data: { 
+               ...data,
+               ... portfolioId && ({ portfolio: { connect: { id: Number(portfolioId) }}}),
+            }, 
+            include: { portfolio: true }})
          if(resp){
             // Upload Photo
-            const tag = resp?.id;
+            const tag = resp?.id;   
             const eid = resp?.portfolio?.electionId;
-            const dest = path.join(__dirname,"/../../public/cdn/photo/evs"+eid,(tag?.toString()?.trim()?.toLowerCase())+".jpg");
+            const dest = path.join(__dirname,"/../../public/cdn/photo/evs/"+eid,(tag?.toString()?.trim()?.toLowerCase())+".jpg");
+            if(photo)
             photo.mv(dest, function(err:any) {
-                if (err) return res.status(500).send(err);
+               if (err) console.log(err);
             })
             // Return Response
             res.status(200).json(resp)
@@ -483,23 +680,35 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async updateCandidate(req: Request,res: Response) {
+  async updateCandidate(req: Request,res: Response) {
       try {
+         const { portfolioId } = req.body
+         const lastCandidate:any = await evs.candidate.findFirst({ where: { portfolioId: Number(portfolioId) }, orderBy: { 'orderNo': 'desc' }})
+         
+         let data = req.body;
+            delete data.photo;  delete data.portfolioId;
+            data.orderNo = data?.orderNo > 0 ? Number(data.orderNo) : (lastCandidate?.orderNo+1) ;
+            data.tag = data?.name?.split(" ")[0]?.trim()?.toLowerCase();
+            data.status = !!data.status
          const photo:any = req?.files?.photo;
          const resp = await evs.candidate.update({
-            where: { id: Number(req.params.id)},
-            data: req.body,
+            where: { id: Number(req.params?.id)},
+            data: { 
+               ...data,
+               ... portfolioId && ({ portfolio: { connect: { id: Number(portfolioId) }}}),
+            }, 
             include: { portfolio: true }
          })
          if(resp){
             // Upload Photo
             const tag = resp?.id;
             const eid = resp?.portfolio?.electionId;
-            const dest = path.join(__dirname,"/../../public/cdn/photo/evs"+eid,(tag?.toString()?.trim()?.toLowerCase())+".jpg");
+            const dest = path.join(__dirname,"/../../public/cdn/photo/evs/"+eid,(tag?.toString()?.trim()?.toLowerCase())+".jpg");
+            if(photo)
             photo.mv(dest, function(err:any) {
-               if (err) return res.status(500).send(err);
+               if (err) console.log(err);
             })
             // Return Response
             res.status(200).json(resp)
@@ -510,9 +719,9 @@ export default class EvsController {
             console.log(error)
             return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async deleteCandidate(req: Request,res: Response) {
+  async deleteCandidate(req: Request,res: Response) {
       try {
          const resp = await evs.candidate.delete({
             where: {  id: Number(req.params.id)  }
@@ -526,12 +735,10 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
 
-
-
-   async postEvsData(req: Request,res: Response) {
+  async postEvsData(req: Request,res: Response) {
       try {
          const resp = await evs.session.findMany({ where: { status: true }, orderBy: { title:'asc' } })
          if(resp){
@@ -543,9 +750,9 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async fetchEvsMonitor(req: Request,res: Response) {
+  async fetchEvsMonitor(req: Request,res: Response) {
       try {
          const resp = await evs.session.findMany({ where: { status: true }, orderBy: { title:'asc' } })
          if(resp){
@@ -557,9 +764,9 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
-   async fetchEvsData(req: Request,res: Response) {
+  async fetchEvsData(req: Request,res: Response) {
       try {
          const resp = await evs.session.findMany({ where: { status: true }, orderBy: { title:'asc' } })
          if(resp){
@@ -571,7 +778,7 @@ export default class EvsController {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-   }
+  }
 
     
  

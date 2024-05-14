@@ -20,6 +20,45 @@ const moment_1 = __importDefault(require("moment"));
 const evs = new ums_1.PrismaClient();
 class EvsController {
     // Elections
+    fetchAdminElections(req, res) {
+        var _a, _b, _c;
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, pageSize = 6, keyword = '' } = req.query;
+            const offset = (page - 1) * pageSize;
+            let searchCondition = {};
+            try {
+                if (keyword)
+                    searchCondition = {
+                        where: {
+                            OR: [
+                                { title: { contains: keyword } },
+                                //{ id: { contains: keyword } },
+                            ],
+                        },
+                    };
+                const resp = yield evs.$transaction([
+                    evs.election.count(Object.assign({}, (searchCondition))),
+                    evs.election.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: {
+                            group: true,
+                        }, skip: offset, take: Number(pageSize) }))
+                ]);
+                if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
+                    res.status(200).json({
+                        totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
+                        totalData: (_c = resp[1]) === null || _c === void 0 ? void 0 : _c.length,
+                        data: resp[1],
+                    });
+                }
+                else {
+                    res.status(204).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
     fetchElections(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
@@ -75,13 +114,14 @@ class EvsController {
             try {
                 const resp = yield evs.election.findUnique({
                     where: { id: Number(req.params.id) },
+                    include: { group: true },
                 });
                 if (resp) {
                     const ts = yield evs.elector.count({ where: { electionId: Number(req.params.id) } });
-                    const tm = yield Promise.all((_a = resp === null || resp === void 0 ? void 0 : resp.voterData) === null || _a === void 0 ? void 0 : _a.map((r) => __awaiter(this, void 0, void 0, function* () {
+                    const tm = (resp === null || resp === void 0 ? void 0 : resp.voterData) && (yield Promise.all((_a = resp === null || resp === void 0 ? void 0 : resp.voterData) === null || _a === void 0 ? void 0 : _a.map((r) => __awaiter(this, void 0, void 0, function* () {
                         const ts = yield evs.elector.findFirst({ where: { electionId: Number(req.params.id), tag: r === null || r === void 0 ? void 0 : r.tag } });
                         return Object.assign(Object.assign({}, r), { voteStatus: !!ts });
-                    })));
+                    }))));
                     res.status(200).json(Object.assign(Object.assign({}, resp), { voterData: tm, turnout: ts }));
                 }
                 else {
@@ -95,12 +135,50 @@ class EvsController {
         });
     }
     postElection(req, res) {
+        var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const resp = yield evs.election.create({ data: req.body });
+                const data = req.body;
+                data === null || data === void 0 ? true : delete data.logo;
+                if (data === null || data === void 0 ? void 0 : data.startAt)
+                    data.startAt = (0, moment_1.default)(data.startAt);
+                if (data === null || data === void 0 ? void 0 : data.endAt)
+                    data.endAt = (0, moment_1.default)(data === null || data === void 0 ? void 0 : data.endAt);
+                if (data === null || data === void 0 ? void 0 : data.groupId)
+                    data.groupId = Number(data === null || data === void 0 ? void 0 : data.groupId);
+                if (data === null || data === void 0 ? void 0 : data.voterList)
+                    data.voterList = JSON.parse(data === null || data === void 0 ? void 0 : data.voterList);
+                if (data === null || data === void 0 ? void 0 : data.status)
+                    data.status = !!(data === null || data === void 0 ? void 0 : data.status);
+                if (data === null || data === void 0 ? void 0 : data.allowMonitor)
+                    data.allowMonitor = !!(data === null || data === void 0 ? void 0 : data.allowMonitor);
+                if (data === null || data === void 0 ? void 0 : data.allowVip)
+                    data.allowVip = !!(data === null || data === void 0 ? void 0 : data.allowVip);
+                if (data === null || data === void 0 ? void 0 : data.allowResult)
+                    data.allowResult = !!(data === null || data === void 0 ? void 0 : data.allowResult);
+                if (data === null || data === void 0 ? void 0 : data.allowMask)
+                    data.allowMask = !!(data === null || data === void 0 ? void 0 : data.allowMask);
+                if (data === null || data === void 0 ? void 0 : data.allowEcMonitor)
+                    data.allowEcMonitor = !!(data === null || data === void 0 ? void 0 : data.allowEcMonitor);
+                if (data === null || data === void 0 ? void 0 : data.allowEcVip)
+                    data.allowEcVip = !!(data === null || data === void 0 ? void 0 : data.allowEcVip);
+                if (data === null || data === void 0 ? void 0 : data.allowEcResult)
+                    data.allowEcResult = !!(data === null || data === void 0 ? void 0 : data.allowEcResult);
+                if (data === null || data === void 0 ? void 0 : data.autoStop)
+                    data.autoStop = !!(data === null || data === void 0 ? void 0 : data.autoStop);
+                const logo = (_a = req === null || req === void 0 ? void 0 : req.files) === null || _a === void 0 ? void 0 : _a.logo;
+                const resp = yield evs.election.create({ data: data });
                 if (resp) {
                     // Create Upload Folder
                     fs_1.default.mkdirSync(path_1.default.join(__dirname, "/../../public/cdn/evs") + `/${resp.id}`);
+                    // Upload Logo
+                    const eid = resp === null || resp === void 0 ? void 0 : resp.id;
+                    const dest = path_1.default.join(__dirname, "/../../public/cdn/photo/evs/", ((_c = (_b = eid === null || eid === void 0 ? void 0 : eid.toString()) === null || _b === void 0 ? void 0 : _b.trim()) === null || _c === void 0 ? void 0 : _c.toLowerCase()) + ".png");
+                    if (logo)
+                        logo.mv(dest, function (err) {
+                            if (err)
+                                console.log(err);
+                        });
                     // Return Response Data
                     res.status(200).json(resp);
                 }
@@ -115,13 +193,51 @@ class EvsController {
         });
     }
     updateElection(req, res) {
+        var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                const data = req.body;
+                data === null || data === void 0 ? true : delete data.logo;
+                if (data === null || data === void 0 ? void 0 : data.startAt)
+                    data.startAt = (0, moment_1.default)(data.startAt);
+                if (data === null || data === void 0 ? void 0 : data.endAt)
+                    data.endAt = (0, moment_1.default)(data === null || data === void 0 ? void 0 : data.endAt);
+                if (data === null || data === void 0 ? void 0 : data.groupId)
+                    data.groupId = Number(data === null || data === void 0 ? void 0 : data.groupId);
+                if (data === null || data === void 0 ? void 0 : data.voterList)
+                    data.voterList = JSON.parse(data === null || data === void 0 ? void 0 : data.voterList);
+                if (data === null || data === void 0 ? void 0 : data.status)
+                    data.status = !!(data === null || data === void 0 ? void 0 : data.status);
+                if (data === null || data === void 0 ? void 0 : data.allowMonitor)
+                    data.allowMonitor = !!(data === null || data === void 0 ? void 0 : data.allowMonitor);
+                if (data === null || data === void 0 ? void 0 : data.allowVip)
+                    data.allowVip = !!(data === null || data === void 0 ? void 0 : data.allowVip);
+                if (data === null || data === void 0 ? void 0 : data.allowResult)
+                    data.allowResult = !!(data === null || data === void 0 ? void 0 : data.allowResult);
+                if (data === null || data === void 0 ? void 0 : data.allowMask)
+                    data.allowMask = !!(data === null || data === void 0 ? void 0 : data.allowMask);
+                if (data === null || data === void 0 ? void 0 : data.allowEcMonitor)
+                    data.allowEcMonitor = !!(data === null || data === void 0 ? void 0 : data.allowEcMonitor);
+                if (data === null || data === void 0 ? void 0 : data.allowEcVip)
+                    data.allowEcVip = !!(data === null || data === void 0 ? void 0 : data.allowEcVip);
+                if (data === null || data === void 0 ? void 0 : data.allowEcResult)
+                    data.allowEcResult = !!(data === null || data === void 0 ? void 0 : data.allowEcResult);
+                if (data === null || data === void 0 ? void 0 : data.autoStop)
+                    data.autoStop = !!(data === null || data === void 0 ? void 0 : data.autoStop);
+                const logo = (_a = req === null || req === void 0 ? void 0 : req.files) === null || _a === void 0 ? void 0 : _a.logo;
                 const resp = yield evs.election.update({
                     where: { id: Number(req.params.id) },
-                    data: req.body
+                    data: data
                 });
                 if (resp) {
+                    // Upload Logo
+                    const eid = resp === null || resp === void 0 ? void 0 : resp.id;
+                    const dest = path_1.default.join(__dirname, "/../../public/cdn/photo/evs/", ((_c = (_b = eid === null || eid === void 0 ? void 0 : eid.toString()) === null || _b === void 0 ? void 0 : _b.trim()) === null || _c === void 0 ? void 0 : _c.toLowerCase()) + ".png");
+                    if (logo)
+                        logo.mv(dest, function (err) {
+                            if (err)
+                                console.log(err);
+                        });
                     res.status(200).json(resp);
                 }
                 else {
@@ -145,6 +261,90 @@ class EvsController {
                 }
                 else {
                     res.status(204).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    // Action
+    actionReset(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { electionId } = req.body;
+                // Reset Candidates votes
+                yield evs.candidate.updateMany({
+                    where: { portfolio: { electionId: Number(electionId) } },
+                    data: { votes: 0 }
+                });
+                // Delete Voted Users
+                const resp = yield evs.elector.deleteMany({
+                    where: { electionId: Number(electionId) }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(204).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    actionAdmin(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { tag, electionId } = req.body;
+                const election = yield evs.election.findUnique({ where: { id: Number(electionId) } });
+                if (election) {
+                    const { admins } = election;
+                    const vt = admins.find((r) => (r === null || r === void 0 ? void 0 : r.toLowerCase()) == (tag === null || tag === void 0 ? void 0 : tag.toLowerCase()));
+                    let newAdmins;
+                    if (vt) {
+                        newAdmins = admins.filter((r) => (r === null || r === void 0 ? void 0 : r.toLowerCase()) != (tag === null || tag === void 0 ? void 0 : tag.toLowerCase()));
+                    }
+                    else {
+                        newAdmins = [...admins, tag];
+                    }
+                    const resp = yield evs.election.update({
+                        where: { id: Number(electionId) },
+                        data: {
+                            admins: newAdmins
+                        }
+                    });
+                    if (resp) {
+                        return res.status(200).json(resp);
+                    }
+                    else {
+                        return res.status(202).json({ message: `No record found!` });
+                    }
+                }
+                else
+                    return res.status(202).json({ message: `Election not staged!` });
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    actionVoters(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield evs.election.create({ data: req.body });
+                if (resp) {
+                    // Create Upload Folder
+                    fs_1.default.mkdirSync(path_1.default.join(__dirname, "/../../public/cdn/evs") + `/${resp.id}`);
+                    // Return Response Data
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(204).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -205,13 +405,13 @@ class EvsController {
                                 res.status(200).json(resp);
                             }
                             else
-                                throw new Error(`Votes invalid`);
+                                throw new Error(`Votes invalid!`);
                         }
                         else
-                            throw new Error(`Election is closed`);
+                            throw new Error(`Election is closed!`);
                     }
                     else
-                        throw new Error(`Elector not listed`);
+                        throw new Error(`Elector not qualified!`);
                 }));
             }
             catch (error) {
@@ -292,7 +492,7 @@ class EvsController {
     setupVoters(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const en = yield evs.election.findUnique({ where: { id: Number(req.params.id) } });
+                const en = yield evs.election.findUnique({ where: { id: Number(req.body.electionId) } });
                 if (en) {
                     const list = en === null || en === void 0 ? void 0 : en.voterList;
                     if (list === null || list === void 0 ? void 0 : list.length) {
@@ -301,10 +501,10 @@ class EvsController {
                                 ? yield evs.student.findFirst({ where: { id: r } })
                                 : yield evs.staff.findFirst({ where: { staffNo: r } });
                             const us = yield evs.user.findFirst({ where: { tag: r } });
-                            return ({ tag: (ts === null || ts === void 0 ? void 0 : ts.id) || (ts === null || ts === void 0 ? void 0 : ts.staffNo), name: `${ts.fname} ${ts.mname && ts.mname + ' '}${ts.lname}`, username: us === null || us === void 0 ? void 0 : us.username, pin: us === null || us === void 0 ? void 0 : us.unlockPin });
+                            return ({ tag: (ts === null || ts === void 0 ? void 0 : ts.id) || (ts === null || ts === void 0 ? void 0 : ts.staffNo), name: `${ts === null || ts === void 0 ? void 0 : ts.fname} ${(ts === null || ts === void 0 ? void 0 : ts.mname) && (ts === null || ts === void 0 ? void 0 : ts.mname) + ' '}${ts === null || ts === void 0 ? void 0 : ts.lname}`, username: us === null || us === void 0 ? void 0 : us.username, pin: us === null || us === void 0 ? void 0 : us.unlockPin, phone: ts === null || ts === void 0 ? void 0 : ts.phone });
                         })));
                         const resp = yield evs.election.update({
-                            where: { id: Number(req.params.id) },
+                            where: { id: Number(req.body.electionId) },
                             data: { voterData: voters }
                         });
                         // Return Response
@@ -400,7 +600,13 @@ class EvsController {
     fetchPortfolios(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const resp = yield evs.portfolio.findMany({ where: { electionId: Number(req.params.id) } });
+                const resp = yield evs.portfolio.findMany({
+                    where: { electionId: Number(req.params.id) },
+                    include: {
+                        _count: { select: { candidate: true } },
+                        election: true
+                    }
+                });
                 if (resp) {
                     res.status(200).json(resp);
                 }
@@ -414,13 +620,31 @@ class EvsController {
             }
         });
     }
+    fetchPortfolioList(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield evs.portfolio.findMany({
+                    where: { status: true, electionId: Number(req.query.electionId) }
+                });
+                if (resp === null || resp === void 0 ? void 0 : resp.length) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(204).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
     fetchPortfolio(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const resp = yield evs.portfolio.findUnique({
-                    where: {
-                        id: Number(req.params.id)
-                    },
+                    where: { id: Number(req.params.id) },
+                    include: { _count: { select: { candidate: true } } }
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -475,6 +699,7 @@ class EvsController {
     deletePortfolio(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                console.log(`delete ID: ${req.params.id}`);
                 const resp = yield evs.portfolio.delete({
                     where: { id: Number(req.params.id) }
                 });
@@ -513,9 +738,8 @@ class EvsController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const resp = yield evs.candidate.findUnique({
-                    where: {
-                        id: Number(req.params.id)
-                    },
+                    where: { id: Number(req.params.id) },
+                    include: { portfolio: { select: { electionId: true } } }
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -531,20 +755,32 @@ class EvsController {
         });
     }
     postCandidate(req, res) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c, _d, _e, _f, _g;
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const photo = (_a = req === null || req === void 0 ? void 0 : req.files) === null || _a === void 0 ? void 0 : _a.photo;
-                const resp = yield evs.candidate.create({ data: req.body, include: { portfolio: true } });
+                const { portfolioId } = req.body;
+                const lastCandidate = yield evs.candidate.findFirst({ where: { portfolioId: Number(portfolioId) }, orderBy: { 'orderNo': 'desc' } });
+                let data = req.body;
+                delete data.photo;
+                delete data.portfolioId;
+                data.orderNo = data.orderNo > 0 ? Number(data.orderNo) : ((lastCandidate === null || lastCandidate === void 0 ? void 0 : lastCandidate.orderNo) + 1);
+                data.tag = (_c = (_b = (_a = data === null || data === void 0 ? void 0 : data.name) === null || _a === void 0 ? void 0 : _a.split(" ")[0]) === null || _b === void 0 ? void 0 : _b.trim()) === null || _c === void 0 ? void 0 : _c.toLowerCase();
+                data.status = !!data.status;
+                const photo = (_d = req === null || req === void 0 ? void 0 : req.files) === null || _d === void 0 ? void 0 : _d.photo;
+                const resp = yield evs.candidate.create({
+                    data: Object.assign(Object.assign({}, data), portfolioId && ({ portfolio: { connect: { id: Number(portfolioId) } } })),
+                    include: { portfolio: true }
+                });
                 if (resp) {
                     // Upload Photo
                     const tag = resp === null || resp === void 0 ? void 0 : resp.id;
-                    const eid = (_b = resp === null || resp === void 0 ? void 0 : resp.portfolio) === null || _b === void 0 ? void 0 : _b.electionId;
-                    const dest = path_1.default.join(__dirname, "/../../public/cdn/photo/evs" + eid, ((_d = (_c = tag === null || tag === void 0 ? void 0 : tag.toString()) === null || _c === void 0 ? void 0 : _c.trim()) === null || _d === void 0 ? void 0 : _d.toLowerCase()) + ".jpg");
-                    photo.mv(dest, function (err) {
-                        if (err)
-                            return res.status(500).send(err);
-                    });
+                    const eid = (_e = resp === null || resp === void 0 ? void 0 : resp.portfolio) === null || _e === void 0 ? void 0 : _e.electionId;
+                    const dest = path_1.default.join(__dirname, "/../../public/cdn/photo/evs/" + eid, ((_g = (_f = tag === null || tag === void 0 ? void 0 : tag.toString()) === null || _f === void 0 ? void 0 : _f.trim()) === null || _g === void 0 ? void 0 : _g.toLowerCase()) + ".jpg");
+                    if (photo)
+                        photo.mv(dest, function (err) {
+                            if (err)
+                                console.log(err);
+                        });
                     // Return Response
                     res.status(200).json(resp);
                 }
@@ -559,24 +795,33 @@ class EvsController {
         });
     }
     updateCandidate(req, res) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c, _d, _e, _f, _g, _h;
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const photo = (_a = req === null || req === void 0 ? void 0 : req.files) === null || _a === void 0 ? void 0 : _a.photo;
+                const { portfolioId } = req.body;
+                const lastCandidate = yield evs.candidate.findFirst({ where: { portfolioId: Number(portfolioId) }, orderBy: { 'orderNo': 'desc' } });
+                let data = req.body;
+                delete data.photo;
+                delete data.portfolioId;
+                data.orderNo = (data === null || data === void 0 ? void 0 : data.orderNo) > 0 ? Number(data.orderNo) : ((lastCandidate === null || lastCandidate === void 0 ? void 0 : lastCandidate.orderNo) + 1);
+                data.tag = (_c = (_b = (_a = data === null || data === void 0 ? void 0 : data.name) === null || _a === void 0 ? void 0 : _a.split(" ")[0]) === null || _b === void 0 ? void 0 : _b.trim()) === null || _c === void 0 ? void 0 : _c.toLowerCase();
+                data.status = !!data.status;
+                const photo = (_d = req === null || req === void 0 ? void 0 : req.files) === null || _d === void 0 ? void 0 : _d.photo;
                 const resp = yield evs.candidate.update({
-                    where: { id: Number(req.params.id) },
-                    data: req.body,
+                    where: { id: Number((_e = req.params) === null || _e === void 0 ? void 0 : _e.id) },
+                    data: Object.assign(Object.assign({}, data), portfolioId && ({ portfolio: { connect: { id: Number(portfolioId) } } })),
                     include: { portfolio: true }
                 });
                 if (resp) {
                     // Upload Photo
                     const tag = resp === null || resp === void 0 ? void 0 : resp.id;
-                    const eid = (_b = resp === null || resp === void 0 ? void 0 : resp.portfolio) === null || _b === void 0 ? void 0 : _b.electionId;
-                    const dest = path_1.default.join(__dirname, "/../../public/cdn/photo/evs" + eid, ((_d = (_c = tag === null || tag === void 0 ? void 0 : tag.toString()) === null || _c === void 0 ? void 0 : _c.trim()) === null || _d === void 0 ? void 0 : _d.toLowerCase()) + ".jpg");
-                    photo.mv(dest, function (err) {
-                        if (err)
-                            return res.status(500).send(err);
-                    });
+                    const eid = (_f = resp === null || resp === void 0 ? void 0 : resp.portfolio) === null || _f === void 0 ? void 0 : _f.electionId;
+                    const dest = path_1.default.join(__dirname, "/../../public/cdn/photo/evs/" + eid, ((_h = (_g = tag === null || tag === void 0 ? void 0 : tag.toString()) === null || _g === void 0 ? void 0 : _g.trim()) === null || _h === void 0 ? void 0 : _h.toLowerCase()) + ".jpg");
+                    if (photo)
+                        photo.mv(dest, function (err) {
+                            if (err)
+                                console.log(err);
+                        });
                     // Return Response
                     res.status(200).json(resp);
                 }

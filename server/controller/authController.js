@@ -32,7 +32,6 @@ class AuthController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { username, password } = req.body;
-                console.log(req.body);
                 if (!username)
                     throw new Error('No username provided!');
                 if (!password)
@@ -40,11 +39,10 @@ class AuthController {
                 // Locate Single-Sign-On Record or Student account
                 //const isUser = await Auth.withCredential(username, password);
                 const isUser = yield sso.user.findFirst({ where: { username, OR: [{ password: sha1(password) }, { unlockPin: password }] }, include: { group: { select: { title: true } } } });
-                console.log(isUser);
                 const isApplicant = yield sso.voucher.findFirst({ where: { serial: username, pin: password }, include: { admission: true } });
                 if (isUser) {
                     let { id, tag, groupId, group: { title: groupName } } = isUser;
-                    let user;
+                    let user = {};
                     if (groupId == 4) { // Support
                         const data = yield sso.support.findUnique({ where: { supportNo: Number(tag) } });
                         if (data)
@@ -60,7 +58,9 @@ class AuthController {
                         if (data)
                             user = { tag, fname: data === null || data === void 0 ? void 0 : data.fname, mname: data === null || data === void 0 ? void 0 : data.mname, lname: data === null || data === void 0 ? void 0 : data.lname, mail: data === null || data === void 0 ? void 0 : data.email, descriptor: (_c = data === null || data === void 0 ? void 0 : data.program) === null || _c === void 0 ? void 0 : _c.longName, department: "", group_id: groupId, group_name: groupName };
                     }
-                    const photo = `https://cdn.ucc.edu.gh/photos/?tag=${encodeURIComponent(tag)}`;
+                    // SSO Photo
+                    const photo = `${process.env.UMS_DOMAIN}/auth/photos/?tag=${encodeURIComponent(tag)}`;
+                    // Roles & Privileges
                     const roles = yield sso.userRole.findMany({ where: { userId: id }, include: { appRole: { select: { title: true, app: true } } } });
                     const evsRoles = yield sso.election.findMany({
                         where: {
@@ -72,28 +72,28 @@ class AuthController {
                         },
                         select: { id: true, title: true, admins: true }
                     });
+                    //console.log(user,roles,evsRoles)
                     // Construct UserData
-                    const userdata = {
-                        user,
-                        roles: [
-                            ...roles,
-                            ...((evsRoles === null || evsRoles === void 0 ? void 0 : evsRoles.length) && (evsRoles === null || evsRoles === void 0 ? void 0 : evsRoles.map((r) => ({
+                    //let userdata;
+                    let userdata = { user, roles: [], photo };
+                    if (roles === null || roles === void 0 ? void 0 : roles.length)
+                        userdata.roles = [...userdata.roles, ...roles];
+                    if (evsRoles === null || evsRoles === void 0 ? void 0 : evsRoles.length)
+                        userdata.roles = [
+                            ...userdata.roles,
+                            ...(evsRoles === null || evsRoles === void 0 ? void 0 : evsRoles.map((r) => ({
                                 id: r.id,
                                 isAdmin: !!(r.admins.find((m) => m.toLowerCase() == tag.toLowerCase())),
                                 appRole: {
-                                    app: {
-                                        tag: 'evs', title: r.title
-                                    }
+                                    app: { tag: 'evs', title: r.title }
                                 }
-                            }))))
-                        ],
-                        photo
-                    };
+                            })))
+                        ];
                     console.log(userdata);
                     // Generate Session Token & 
                     const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60 });
                     // Send Response to Client
-                    res.status(200).json({ success: true, data: userdata, token });
+                    return res.status(200).json({ success: true, data: userdata, token });
                 }
                 else if (isApplicant) {
                     const data = yield sso.stepProfile.findFirst({ where: { serial: username }, include: { applicant: { select: { photo: true } } } });
@@ -114,21 +114,15 @@ class AuthController {
                     // Generate Session Token & 
                     const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60 });
                     // Send Response to Client
-                    res.status(200).json({ success: true, data: userdata, token });
+                    return res.status(200).json({ success: true, data: userdata, token });
                 }
                 else {
-                    res.status(401).json({
-                        success: false,
-                        message: "Invalid Credentials!",
-                    });
+                    return res.status(401).json({ success: false, message: "Invalid Credentials!" });
                 }
             }
             catch (error) {
                 console.log(error);
-                res.status(401).json({
-                    success: false,
-                    message: error.message,
-                });
+                return res.status(401).json({ success: false, message: error.message });
             }
         });
     }
@@ -258,6 +252,35 @@ class AuthController {
                 else {
                     res.status(202).json({ message: `Invalid request!` });
                 }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Send Voter Pins */
+    sendVoterPins(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { id } = req.params;
+                const en = yield sso.election.findFirst({ where: { id: Number(id), status: true } });
+                if (en) {
+                    const users = en === null || en === void 0 ? void 0 : en.voterData;
+                    if (users === null || users === void 0 ? void 0 : users.length) {
+                        const resp = yield Promise.all(users === null || users === void 0 ? void 0 : users.map((row) => __awaiter(this, void 0, void 0, function* () {
+                            const msg = `Please Access https://ums.aucc.edu.gh with USERNAME: ${row.username}, PIN: ${row.pin}. Note that you can use 4-digit PIN as PASSWORD`;
+                            if (row === null || row === void 0 ? void 0 : row.phone)
+                                return yield sms(row === null || row === void 0 ? void 0 : row.phone, msg);
+                            return { code: 1002 };
+                        })));
+                        return res.status(200).json(resp);
+                    }
+                    else {
+                        return res.status(202).json({ message: `Invalid request!` });
+                    }
+                }
+                return res.status(202).json({ message: `Invalid request!` });
             }
             catch (error) {
                 console.log(error);

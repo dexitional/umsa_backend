@@ -40,7 +40,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -58,7 +58,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -68,7 +68,7 @@ class AisController {
         });
     }
     fetchSessions(req, res) {
-        var _a, _b, _c;
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
@@ -88,16 +88,15 @@ class AisController {
                     ais.session.count(Object.assign({}, (searchCondition))),
                     ais.session.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize) }))
                 ]);
-                if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
-                    res.status(200).json({
-                        totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
-                        totalData: (_c = resp[1]) === null || _c === void 0 ? void 0 : _c.length,
-                        data: resp[1],
-                    });
-                }
-                else {
-                    res.status(204).json({ message: `no records found` });
-                }
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
             }
             catch (error) {
                 console.log(error);
@@ -117,7 +116,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -138,7 +137,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -155,7 +154,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -177,7 +176,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -196,7 +195,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -207,7 +206,7 @@ class AisController {
     }
     /* Student */
     fetchStudents(req, res) {
-        var _a, _b, _c;
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 6, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
@@ -242,16 +241,15 @@ class AisController {
                             },
                         } }))
                 ]);
-                if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
-                    res.status(200).json({
-                        totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
-                        totalData: (_c = resp[1]) === null || _c === void 0 ? void 0 : _c.length,
-                        data: resp[1],
-                    });
-                }
-                else {
-                    res.status(204).json({ message: `no records found` });
-                }
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
             }
             catch (error) {
                 console.log(error);
@@ -284,7 +282,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -324,7 +322,7 @@ class AisController {
                     res.status(200).json(Array.from(mdata));
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -350,7 +348,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -379,7 +377,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -405,7 +403,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -429,7 +427,7 @@ class AisController {
                     res.status(200).json({ password });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -451,7 +449,7 @@ class AisController {
                     res.status(200).json({ password });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -482,7 +480,7 @@ class AisController {
                     res.status(200).json({ indexno });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -508,7 +506,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -535,7 +533,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -554,7 +552,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -572,7 +570,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -582,7 +580,7 @@ class AisController {
         });
     }
     fetchCourses(req, res) {
-        var _a, _b, _c;
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
@@ -601,16 +599,15 @@ class AisController {
                     ais.course.count(Object.assign({}, (searchCondition))),
                     ais.course.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize) }))
                 ]);
-                if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
-                    res.status(200).json({
-                        totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
-                        totalData: (_c = resp[1]) === null || _c === void 0 ? void 0 : _c.length,
-                        data: resp[1],
-                    });
-                }
-                else {
-                    res.status(204).json({ message: `no records found` });
-                }
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
             }
             catch (error) {
                 console.log(error);
@@ -630,7 +627,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -649,7 +646,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -671,7 +668,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -690,7 +687,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -701,7 +698,7 @@ class AisController {
     }
     /* Structure & Curriculum */
     fetchCurriculums(req, res) {
-        var _a, _b, _c;
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
@@ -726,16 +723,15 @@ class AisController {
                             course: { select: { title: true } },
                         } }))
                 ]);
-                if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
-                    res.status(200).json({
-                        totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
-                        totalData: (_c = resp[1]) === null || _c === void 0 ? void 0 : _c.length,
-                        data: resp[1],
-                    });
-                }
-                else {
-                    res.status(204).json({ message: `no records found` });
-                }
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                // } else {
+                //   res.status(202).json({ message: `no records found` })
+                // }
             }
             catch (error) {
                 console.log(error);
@@ -753,7 +749,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -774,7 +770,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -797,7 +793,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -821,7 +817,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -840,7 +836,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -851,7 +847,7 @@ class AisController {
     }
     /* Schemes */
     fetchSchemes(req, res) {
-        var _a, _b, _c;
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
@@ -873,16 +869,15 @@ class AisController {
                             }
                         } }))
                 ]);
-                if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
-                    res.status(200).json({
-                        totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
-                        totalData: (_c = resp[1]) === null || _c === void 0 ? void 0 : _c.length,
-                        data: resp[1],
-                    });
-                }
-                else {
-                    res.status(204).json({ message: `no records found` });
-                }
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
             }
             catch (error) {
                 console.log(error);
@@ -900,7 +895,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -922,7 +917,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -941,7 +936,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -963,7 +958,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -982,7 +977,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -1012,7 +1007,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1022,7 +1017,7 @@ class AisController {
         });
     }
     fetchRegistrations(req, res) {
-        var _a, _b, _c;
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
@@ -1054,16 +1049,15 @@ class AisController {
                             }
                         } }))
                 ]);
-                if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
-                    res.status(200).json({
-                        totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
-                        totalData: (_c = resp[1]) === null || _c === void 0 ? void 0 : _c.length,
-                        data: resp[1],
-                    });
-                }
-                else {
-                    res.status(204).json({ message: `no records found` });
-                }
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                // } else {
+                //    res.status(202).json({ message: `no records found` })
+                // }
             }
             catch (error) {
                 console.log(error);
@@ -1089,7 +1083,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1193,7 +1187,7 @@ class AisController {
                     res.status(200).json({ session: session === null || session === void 0 ? void 0 : session.title, courses, meta, condition, message });
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1260,7 +1254,7 @@ class AisController {
                     res.status(200).json({ courses: mainresp, resits: rdata, totalCourses: courses.length });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -1313,7 +1307,7 @@ class AisController {
                     res.status(200).json({ courses: mainresp, resits: rdata });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -1355,7 +1349,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `Registration not deleted` });
+                    res.status(202).json({ message: `Registration not deleted` });
                 }
             }
             catch (error) {
@@ -1378,7 +1372,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1388,7 +1382,7 @@ class AisController {
         });
     }
     fetchPrograms(req, res) {
-        var _a, _b, _c;
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 6, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
@@ -1412,16 +1406,15 @@ class AisController {
                             student: { select: { _count: true } }
                         } }))
                 ]);
-                if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
-                    res.status(200).json({
-                        totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
-                        totalData: (_c = resp[1]) === null || _c === void 0 ? void 0 : _c.length,
-                        data: resp[1],
-                    });
-                }
-                else {
-                    res.status(204).json({ message: `no records found` });
-                }
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
             }
             catch (error) {
                 console.log(error);
@@ -1445,7 +1438,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1511,7 +1504,7 @@ class AisController {
                     res.status(200).json({ data: Array.from(mdata), meta: Object.fromEntries(sdata) });
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1557,11 +1550,10 @@ class AisController {
                             mdata.set(index, [Object.assign({}, zd)]);
                         }
                     }
-                    console.log(Array.from(mdata));
                     res.status(200).json(Array.from(mdata));
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(200).json([]);
                 }
             }
             catch (error) {
@@ -1585,7 +1577,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1607,7 +1599,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -1630,7 +1622,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -1649,7 +1641,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -1678,7 +1670,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1707,7 +1699,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1747,7 +1739,7 @@ class AisController {
                     });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -1767,7 +1759,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1789,7 +1781,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1810,7 +1802,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -1834,7 +1826,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -1853,7 +1845,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -1894,7 +1886,7 @@ class AisController {
                     });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -1913,7 +1905,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1934,7 +1926,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1953,7 +1945,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -1975,7 +1967,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -1994,7 +1986,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -2036,7 +2028,7 @@ class AisController {
                     });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2053,7 +2045,7 @@ class AisController {
     //       if(resp){
     //          res.status(200).json(resp)
     //       } else {
-    //          res.status(204).json({ message: `no record found` })
+    //          res.status(202).json({ message: `no record found` })
     //       }
     //    } catch (error: any) {
     //       console.log(error)
@@ -2072,7 +2064,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -2091,7 +2083,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2113,7 +2105,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -2132,7 +2124,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -2143,7 +2135,7 @@ class AisController {
     }
     /* Sheets */
     fetchSheets(req, res) {
-        var _a, _b, _c;
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 6, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
@@ -2178,16 +2170,15 @@ class AisController {
                                 assignee: true,
                             } })))), { skip: offset, take: Number(pageSize), orderBy: [{ sessionId: 'desc' }, { semesterNum: 'asc' }] }))
                 ]);
-                if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
-                    res.status(200).json({
-                        totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
-                        totalData: (_c = resp[1]) === null || _c === void 0 ? void 0 : _c.length,
-                        data: resp[1],
-                    });
-                }
-                else {
-                    res.status(204).json({ message: `no records found` });
-                }
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                // } else {
+                //res.status(202).json({ message: `no records found` })
+                //}
             }
             catch (error) {
                 console.log(error);
@@ -2209,7 +2200,7 @@ class AisController {
                     // Check whether Sheets are generated 
                     const form = yield ais.sheet.findFirst({ where: { sessionId, status: true } });
                     if (form)
-                        res.status(204).json({ message: `no record found` });
+                        res.status(202).json({ message: `no record found` });
                     // Upsert Bulk into Sheet 
                     const resp = yield Promise.all(mounts === null || mounts === void 0 ? void 0 : mounts.map((row) => __awaiter(this, void 0, void 0, function* () {
                         let { courseId, programId, unitId, majorId } = row;
@@ -2222,11 +2213,11 @@ class AisController {
                         res.status(200).json(resp);
                     }
                     else {
-                        res.status(204).json({ message: `no record found` });
+                        res.status(202).json({ message: `no record found` });
                     }
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -2268,11 +2259,11 @@ class AisController {
                         res.status(200).json(resp);
                     }
                     else {
-                        res.status(204).json({ message: `no record found` });
+                        res.status(202).json({ message: `no record found` });
                     }
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -2322,7 +2313,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -2341,7 +2332,7 @@ class AisController {
                 // Check whether Sheets are generated 
                 const form = yield ais.sheet.findFirst({ where: { sessionId, status: true } });
                 if (form)
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 // Fetch Session Info
                 const session = yield ais.session.findFirst({ where: { id: sessionId, default: true } });
                 if (session) {
@@ -2429,7 +2420,7 @@ class AisController {
                 }
                 else {
                     // Session Not Default or Activated
-                    res.status(204).json({ message: `Session is not activated!` });
+                    res.status(202).json({ message: `Session is not activated!` });
                 }
                 if (loopcount) {
                     // Update Stage Status in Calendar
@@ -2437,7 +2428,7 @@ class AisController {
                     res.status(200).json(loopcount);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -2463,7 +2454,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -2482,7 +2473,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -2501,7 +2492,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2523,7 +2514,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -2542,7 +2533,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -2564,7 +2555,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -2586,7 +2577,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2626,7 +2617,7 @@ class AisController {
                     });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2647,7 +2638,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -2678,7 +2669,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2700,7 +2691,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -2719,7 +2710,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -2781,7 +2772,7 @@ class AisController {
                     });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2812,7 +2803,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -2840,7 +2831,7 @@ class AisController {
                     res.status(200).json(Object.assign(Object.assign({}, resp), { password }));
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2862,7 +2853,7 @@ class AisController {
                     res.status(200).json({ password });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2883,7 +2874,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2905,7 +2896,7 @@ class AisController {
                     res.status(200).json({ password });
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2933,7 +2924,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no records found` });
+                    res.status(202).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -2980,7 +2971,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -2999,7 +2990,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `No records found` });
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {
@@ -3020,7 +3011,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3039,7 +3030,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3058,7 +3049,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3077,7 +3068,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3096,7 +3087,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3115,7 +3106,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3134,7 +3125,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3153,7 +3144,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3172,7 +3163,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3189,7 +3180,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3206,7 +3197,7 @@ class AisController {
                     res.status(200).json(resp);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3222,52 +3213,73 @@ class AisController {
                 // const subjects:any = require('../../util/subjects.json');
                 // const structure:any = require('../../util/structure.json');
                 // const courses:any = require('../../util/courses2.json');
-                //  const students = require('../../util/student2.json');
-                //  const staff = require('../../util/staff.json');
-                const scores = require('../../util/us4.json');
+                //  const students = require('../../util/active_student.json');
+                //   const staff = require('../../util/staff.json');
+                //  const users = require('../../util/users.json');
+                //  const jobs = require('../../util/job.json');
+                //  const scores = require('../../util/_calendar.json');
+                //const scores = require('../../util/_scheme.json');
+                //  const scores = require('../../util/units.json');
+                // const courses = require('../../util/aucc_courses.json');
+                // const courses = require('../../util/courses.json');
                 // if(courses.length){
                 //   for(const course of courses){
                 //      console.log(course)
                 //      const ins = await ais.course.create({
                 //          data: {
-                //             id: course.code,
+                //             id: course.course_code,
                 //             title: course.title?.toUpperCase(),
-                //             creditHour: Number(course.c),
-                //             theoryHour: Number(course.t),
-                //             practicalHour: Number(course.p),
+                //             creditHour: Number(course.credit),
                 //             remark:'ACTIVE'
                 //          }
                 //      })
                 //   }
                 // }
+                //  if(jobs.length){
+                //    for(const subj of jobs){
+                //       console.log(subj)
+                //       const ins = await ais.job.create({
+                //           data: {
+                //              title: subj?.title, 
+                //              type: subj?.type, 
+                //              staffCategory: subj?.staff_group, 
+                //              status: true
+                //           }
+                //       })
+                //       console.log(ins)
+                //    }
+                //  }
                 // if(students.length){
                 //   for(const student of students){
                 //      console.log(student)
                 //      const ins = await ais.student.create({
                 //          data: {
-                //             id: student?.indexno,
+                //             id: student?.refno,
                 //             indexno: student.indexno,
                 //             fname: student.fname?.toUpperCase(),
                 //             mname: student.mname?.toUpperCase(),
                 //             lname: student.lname?.toUpperCase(),
-                //             //dob: moment(student?.dob,'DD/MM/YYYY').toDate(),
-                //             semesterNum: Number(student.semesterNum),
-                //             phone: student.phone,
+                //             ... student?.dob && ({ dob: moment(student?.dob,'YYYY-MM-DD').toDate() }),
+                //             ... student?.doa && ({ entryDate: moment(student?.doa,'YYYY-MM-DD').toDate() }),
+                //             ... student?.doc && ({ exitDate: moment(student?.doc,'YYYY-MM-DD').toDate() }),
+                //             entryGroup: student.entry_group,
+                //             semesterNum: Number(student?.semester),
+                //             phone: student.phone?.replace("+233","0")?.substring(0,10),
                 //             email: student.email,
                 //             gender: student.gender,
-                //             completeStatus: false,
-                //             deferStatus: false,
-                //             graduateStatus: false,
-                //             program: {
-                //                connect: {
-                //                   id: student.programId
-                //                }
-                //             },
-                //             country: {
-                //                connect: {
-                //                   id: "96b0a1d5-7899-4b9a-bcbe-7a72eee6572c"
-                //                }
-                //             },
+                //             guardianName: student.guardian_name,
+                //             guardianPhone: student.guardian_phone,
+                //             instituteEmail: student.institute_email,
+                //             completeStatus: student.complete_status == 1 ? true : false,
+                //             deferStatus: student.defer_status == 1 ? true : false,
+                //             graduateStatus: student.graduate_status == 1 ? true : false,
+                //             studyMode: student.session,
+                //             ... student?.transact_account && ({ accountNet: parseFloat(student.transact_account) }),
+                //             ... student?.entry_semester && ({ entrySemesterNum: Number(student.entry_semester) }),
+                //             ... student?.prog_id && ({ program: { connect: { id: student?.prog_id }} }),
+                //             ... student?.major_id && ({ major: { connect: { id: student?.major_id }} }),
+                //             ... student?.country_id && ({ country: { connect: { id: student?.country_id }} }),
+                //             //country: { connect: { id: "96b0a1d5-7899-4b9a-bcbe-7a72eee6572c" } },
                 //          }
                 //      })
                 //   }
@@ -3277,35 +3289,25 @@ class AisController {
                 //       console.log(st)
                 //       const ins = await ais.staff.create({
                 //           data: {
-                //              staffNo: st?.staffNo,
+                //              staffNo: st?.staff_no?.toString(),
                 //              fname: st.fname?.toUpperCase(),
                 //              mname: st.mname?.toUpperCase(),
                 //              lname: st.lname?.toUpperCase(),
-                //              dob: moment(st?.dob,'DD/MM/YYYY').toDate(),
+                //              dob: st?.dob && moment(st?.dob,'YYYY-MM-DD').toDate(),
                 //              phone: st.phone,
                 //              email: st.email,
+                //              residentAddress: st.address,
                 //              gender: st.gender,
-                //              qualification: st.qualification,
-                //              religion: {
-                //                 connect: {
-                //                    id: st.religionId
-                //                 }
-                //              },
-                //              unit: {
-                //                connect: {
-                //                   id: st.unitId
-                //                }
-                //             },
-                //             job: {
-                //                connect: {
-                //                   id: st.jobId
-                //                }
-                //             },
-                //              country: {
-                //                 connect: {
-                //                    id: "96b0a1d5-7899-4b9a-bcbe-7a72eee6572c"
-                //                 }
-                //              },
+                //              hometown: st.hometown,
+                //              birthplace: st.birth_place,
+                //              ssnitNo: st.ssnit,
+                //              instituteEmail: st.inst_mail,
+                //              qualification: st.position,
+                //             //  religion: { connect: { id: st.religionId }},
+                //             ... st.unit_id && ({ unit: { connect: { id: st.unit_id?.toString() }}}),
+                //             ... st.job_id && ({ job: { connect: { id: st.job_id?.toString() }}}),
+                //             // job: { connect: { id: st.job_id }},
+                //             country: { connect: { id: "96b0a1d5-7899-4b9a-bcbe-7a72eee6572c" }},
                 //           }
                 //       })
                 //    }
@@ -3501,8 +3503,8 @@ class AisController {
                 //       })
                 //    }
                 //  }
-                //  if(scores.length){
-                //    for(const subj of scores){
+                //  if(users.length){
+                //    for(const subj of users){
                 //       console.log(subj)
                 //       const ins = await ais.user.create({
                 //           data: {
@@ -3532,11 +3534,105 @@ class AisController {
                 //       })
                 //    }
                 //  }
-                if (scores) {
-                    res.status(200).json(scores);
+                //  // Calendar
+                //  if(scores.length){
+                //    for(const subj of scores){
+                //       console.log(subj)
+                //       const ins = await ais.session.create({
+                //          data: {
+                //             tag: subj?.tag, 
+                //             title: subj?.title, 
+                //             year: subj?.academic_year?.toString(), 
+                //             semester: subj?.academic_sem == '1' ? 'SEM1':'SEM2', 
+                //             default: !!subj?.default, 
+                //             status: !!subj?.status
+                //          }
+                //       })
+                //    }
+                //  }
+                //  // Schemes
+                //  if(scores.length){
+                //    for(const subj of scores){
+                //       console.log(subj)
+                //       const ins = await ais.scheme.create({
+                //          data: {
+                //             title: subj?.title, 
+                //             gradeMeta: subj?.grade_meta || null, 
+                //             classMeta: subj?.class_meta || null, 
+                //             passMark: 0, 
+                //          }
+                //       })
+                //    }
+                //  }
+                /* ADMISSION MIGRATIONS  */
+                //const sessions = require('../../util/ams/session.json');
+                //const letters = require('../../util/ams/letter.json');
+                const vouchers = require('../../util/ams/voucher.json');
+                //  if(vouchers.length){  // VOUCHERS
+                //    for(const subj of vouchers){
+                //       console.log(subj)
+                //       const ins = await ais.voucher.create({
+                //           data: {
+                //              serial: subj?.serial?.toString(), 
+                //              pin: subj?.pin, 
+                //              applicantName: subj?.applicant_name, 
+                //              applicantPhone: subj?.applicant_phone?.toString()?.substring(0,10), 
+                //              sellType: subj?.sell_type, 
+                //              status: subj?.status == 1 ? true: false, 
+                //              ... subj?.sold_at && ({ soldAt: moment(subj?.sold_at,'YYYY-MM-DD').toDate() }),
+                //              ... subj.session_id && ({ admission: { connect: { id: subj.session_id?.toString() }}}),
+                //              ... subj.group_id && ({ category: { connect: { id: subj?.group_id }}}),
+                //              ... subj.vendor_id && ({ vendor: { connect: { id: subj?.vendor_id }}}),
+                //           }
+                //       })
+                //       console.log(ins)
+                //    }
+                //  }
+                //  if(sessions.length){  // SESSIONS
+                //    for(const subj of sessions){
+                //       console.log(subj)
+                //       const ins = await ais.admission.create({
+                //           data: {
+                //              title: subj?.title, 
+                //              voucherIndex: subj?.voucher_index, 
+                //              applyPause: subj?.apply_freeze == 1 ? true: false, 
+                //              showAdmitted: subj?.admission_show == 1 ? true: false, 
+                //              status: subj?.status == 1 ? true: false, 
+                //              ... subj?.exam_start && ({ examStart: moment(subj?.exam_start,'YYYY-MM-DD').toDate() }),
+                //              ... subj?.exam_end && ({ examStart: moment(subj?.exam_end,'YYYY-MM-DD').toDate() }),
+                //              ... subj?.apply_start && ({ applyStart: moment(subj?.apply_start,'YYYY-MM-DD').toDate() }),
+                //              ... subj?.apply_end && ({ applyEnd: moment(subj?.apply_end,'YYYY-MM-DD').toDate() }),
+                //              ... subj?.admission_date && ({ admittedAt: moment(subj?.admission_date,'YYYY-MM-DD').toDate() }),
+                //              ... subj.pg_letter && ({ pgletter: { connect: { id: subj.pg_letter }}}),
+                //              ... subj.ug_letter && ({ ugletter: { connect: { id: subj.ug_letter }}}),
+                //              ... subj.dp_letter && ({ dpletter: { connect: { id: subj.dp_letter }}}),
+                //              ... subj.cp_letter && ({ cpletter: { connect: { id: subj.cp_letter }}}),
+                //            }
+                //       })
+                //       console.log(ins)
+                //    }
+                //  }
+                //  if(letters.length){
+                //    for(const subj of letters){ // LETTERS
+                //       console.log(subj)
+                //       const ins = await ais.admissionLetter.create({
+                //           data: {
+                //              title: subj?.title, 
+                //              signatory: subj?.signatory, 
+                //              signature: subj?.signature, 
+                //              template: subj?.template, 
+                //              ... subj.tag && ({ category: { connect: { id: subj.tag }}}),
+                //              status: subj?.status == 1 ? true: false
+                //           }
+                //       })
+                //       console.log(ins)
+                //    }
+                //  }
+                if (vouchers) {
+                    res.status(200).json(vouchers);
                 }
                 else {
-                    res.status(204).json({ message: `no record found` });
+                    res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -3572,7 +3668,7 @@ class AisController {
                 // if(students){
                 //   res.status(200).json(resp)
                 // } else {
-                //   res.status(204).json({ message: `no record found` })
+                //   res.status(202).json({ message: `no record found` })
                 // }
             }
             catch (error) {

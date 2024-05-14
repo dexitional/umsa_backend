@@ -230,6 +230,7 @@ exports.Prisma.CourseScalarFieldEnum = {
 
 exports.Prisma.MajorScalarFieldEnum = {
   id: 'id',
+  programId: 'programId',
   shortName: 'shortName',
   longName: 'longName',
   status: 'status',
@@ -1056,6 +1057,7 @@ exports.Prisma.ElectionScalarFieldEnum = {
   allowResult: 'allowResult',
   allowEcResult: 'allowEcResult',
   allowMask: 'allowMask',
+  autoStop: 'autoStop',
   startAt: 'startAt',
   endAt: 'endAt',
   action: 'action',

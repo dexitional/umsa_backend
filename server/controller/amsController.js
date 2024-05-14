@@ -225,7 +225,7 @@ class AmsController {
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
-            let searchCondition = {};
+            let searchCondition = { where: { admission: { default: true } } };
             try {
                 if (keyword)
                     searchCondition = {
@@ -1359,6 +1359,8 @@ class AmsController {
                     update: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, req.body), titleId && ({ title: { connect: { id: titleId } } })), regionId && ({ region: { connect: { id: regionId } } })), religionId && ({ religion: { connect: { id: religionId } } })), countryId && ({ country: { connect: { id: countryId } } })), nationalityId && ({ nationality: { connect: { id: nationalityId } } })), maritalId && ({ marital: { connect: { id: maritalId } } })), disabilityId && ({ marital: { connect: { id: disabilityId } } }))
                 });
                 if (resp) {
+                    // Update Applicant with ProfileId
+                    yield ams.applicant.update({ where: { serial }, data: { profile: { connect: { serial } } } });
                     res.status(200).json(resp);
                 }
                 else {

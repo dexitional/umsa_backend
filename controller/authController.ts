@@ -22,17 +22,15 @@ export default class AuthController {
     async authenticateWithCredential(req: Request,res: Response) {
         try {
            const { username, password }:{ username: string, password: string } = req.body;
-           console.log(req.body)
            if(!username) throw new Error('No username provided!');
            if(!password) throw new Error('No password provided!');
            // Locate Single-Sign-On Record or Student account
            //const isUser = await Auth.withCredential(username, password);
            const isUser:any = await sso.user.findFirst({ where: { username, OR: [{ password: sha1(password) },{ unlockPin: password }]}, include: { group: { select: { title: true }}}});
-           console.log(isUser)
            const isApplicant:any = await sso.voucher.findFirst({ where: { serial: username, pin: password }, include: { admission: true }});
            if (isUser) {
                 let { id, tag, groupId, group: { title: groupName } } = isUser;
-                let user;
+                let user:any = {};
                 if(groupId == 4){ // Support
                    const data = await sso.support.findUnique({ where: { supportNo: Number(tag) } }); 
                    if(data) user = { tag, fname: data?.fname, mname: data?.mname, lname: data?.lname, mail: data?.email, descriptor: "IT Support", department: "System Support", group_id: groupId, group_name: groupName }
@@ -45,7 +43,9 @@ export default class AuthController {
                    const data = await sso.student.findUnique({ where: { id : tag }, include: { program: { select: { longName: true }}} }); 
                    if(data) user = { tag, fname: data?.fname, mname: data?.mname, lname: data?.lname, mail: data?.email, descriptor: data?.program?.longName, department: "", group_id: groupId, group_name: groupName }
                 }
-                const photo = `https://cdn.ucc.edu.gh/photos/?tag=${encodeURIComponent(tag)}`;
+                // SSO Photo
+                const photo = `${process.env.UMS_DOMAIN}/auth/photos/?tag=${encodeURIComponent(tag)}`;
+                // Roles & Privileges
                 const roles:any = await sso.userRole.findMany({ where: { userId: id }, include: { appRole: { select: { title: true, app: true }}}});
                 const evsRoles:any = await sso.election.findMany({
                   where: { 
@@ -57,29 +57,29 @@ export default class AuthController {
                   },
                   select: { id: true, title: true, admins: true  }
                 })
+                //console.log(user,roles,evsRoles)
+                
                 // Construct UserData
-                const userdata: any = {
-                  user,
-                  roles: [
-                    ...roles,
-                    ...(evsRoles?.length && evsRoles?.map((r:any) => ({ 
+                //let userdata;
+                let userdata: any = { user, roles: [], photo }
+                if(roles?.length) userdata.roles = [ ...userdata.roles, ...roles ]
+                if(evsRoles?.length) userdata.roles = [  
+                   ...userdata.roles,
+                   ...(evsRoles?.map((r:any) => ({ 
                           id:r.id,
                           isAdmin: !!(r.admins.find((m:any) => m.toLowerCase() == tag.toLowerCase())), 
                           appRole: { 
-                            app: {
-                              tag:'evs', title: r.title
-                            }
+                            app: { tag:'evs', title: r.title }
                           }
                         })
-                      ))
-                  ],
-                  photo
-                }
+                      )) 
+                  ]
+               
                 console.log(userdata)
                 // Generate Session Token & 
                 const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60});
                 // Send Response to Client
-                res.status(200).json({ success: true, data: userdata, token });
+                return res.status(200).json({ success: true, data: userdata, token });
             
             } else if(isApplicant) {
                 const data:any = await sso.stepProfile.findFirst({ where: { serial: username }, include: { applicant: { select: { photo: true }}} }); 
@@ -99,21 +99,15 @@ export default class AuthController {
                 // Generate Session Token & 
                 const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60});
                 // Send Response to Client
-                res.status(200).json({ success: true, data: userdata, token });
+                return res.status(200).json({ success: true, data: userdata, token });
             
             } else {
-                res.status(401).json({
-                  success: false,
-                  message: "Invalid Credentials!",
-                });
+                return res.status(401).json({ success: false, message: "Invalid Credentials!" });
             }
         
         } catch (error: any) {
             console.log(error)
-            res.status(401).json({
-              success: false,
-              message: error.message,
-            });
+            return res.status(401).json({ success: false, message: error.message });
         }
     }
 
@@ -245,8 +239,35 @@ export default class AuthController {
          }
      }
 
-     /* Send Student Pins */
-     async sendStudentPins(req: Request,res: Response) {
+    /* Send Voter Pins */
+    async sendVoterPins(req: Request,res: Response) {
+      try {
+            const { id } = req.params;
+            const en = await sso.election.findFirst({ where: { id: Number(id), status: true } });
+            if(en){
+              const users:any = en?.voterData;
+              if(users?.length){
+                  const resp:any = await Promise.all(users?.map(async (row:any) => {
+                    const msg = `Please Access https://ums.aucc.edu.gh with USERNAME: ${row.username}, PIN: ${row.pin}. Note that you can use 4-digit PIN as PASSWORD`
+                    if(row?.phone) return await sms(row?.phone, msg);
+                    return { code: 1002 }
+                  }))
+                  return res.status(200).json(resp)
+              } else {
+                  return res.status(202).json({ message: `Invalid request!` })
+              }
+            }
+            return res.status(202).json({ message: `Invalid request!` })
+
+        } catch (error: any) {
+            console.log(error)
+            return res.status(500).json({ message: error.message }) 
+        }
+    }
+
+
+    /* Send Student Pins */
+    async sendStudentPins(req: Request,res: Response) {
       try {
             const users = await sso.user.findMany({ where: { groupId: 1, status: true } })
             if(users?.length){

@@ -477,7 +477,7 @@ export default class EvsController {
                voterData: { path:'$.tag', array_contains: tag }
             },
             data: { 
-            voterData: { jsonb_remove: {  path: '$[*]' } } 
+              voterData: { jsonb_remove: {  path: '$[*]' } } 
             }
          })
          if(resp){

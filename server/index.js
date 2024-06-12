@@ -10,9 +10,10 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const authRoute_1 = __importDefault(require("./route/authRoute"));
 const aisRoute_1 = __importDefault(require("./route/aisRoute"));
 const amsRoute_1 = __importDefault(require("./route/amsRoute"));
-const amsRoute_2 = __importDefault(require("./route/amsRoute"));
+const fmsRoute_1 = __importDefault(require("./route/fmsRoute"));
 const hrsRoute_1 = __importDefault(require("./route/hrsRoute"));
 const evsRoute_1 = __importDefault(require("./route/evsRoute"));
+const apiRoute_1 = __importDefault(require("./route/apiRoute"));
 dotenv_1.default.config();
 const fileUpload = require('express-fileupload');
 const cors = require('cors');
@@ -44,9 +45,10 @@ class Routes {
         app.use("/api/auth", authRoute_1.default); /** Authentication API **/
         app.use("/api/ais", aisRoute_1.default); /** Academics API **/
         app.use("/api/ams", amsRoute_1.default); /** Admissions API **/
-        app.use("/api/fms", amsRoute_2.default); /** Finance API **/
+        app.use("/api/fms", fmsRoute_1.default); /** Finance API **/
         app.use("/api/hrs", hrsRoute_1.default); /** HRS API **/
         app.use("/api/evs", evsRoute_1.default); /** Electa API **/
+        app.use("/api/v1", apiRoute_1.default); /** Bank API **/
         // Initialize Server
         app.listen(port, () => console.log(`⚡️[server]: Server is running at http://localhost:${port}`));
     }

@@ -562,7 +562,8 @@ exports.Prisma.BillScalarFieldEnum = {
   sessionId: 'sessionId',
   bankaccId: 'bankaccId',
   programId: 'programId',
-  studentIds: 'studentIds',
+  includeStudentIds: 'includeStudentIds',
+  excludeStudentIds: 'excludeStudentIds',
   mainGroupCode: 'mainGroupCode',
   discountGroupCode: 'discountGroupCode',
   narrative: 'narrative',
@@ -573,6 +574,7 @@ exports.Prisma.BillScalarFieldEnum = {
   discount: 'discount',
   quota: 'quota',
   posted: 'posted',
+  status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };

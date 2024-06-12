@@ -6,9 +6,10 @@ import dotenv from 'dotenv';
 import authRoute from "./route/authRoute";
 import aisRoute from './route/aisRoute';
 import amsRoute from './route/amsRoute';
-import fmsRoute from './route/amsRoute';
+import fmsRoute from './route/fmsRoute';
 import hrsRoute from './route/hrsRoute';
 import evsRoute from './route/evsRoute';
+import apiRoute from './route/apiRoute';
 dotenv.config();
 
 const fileUpload = require('express-fileupload');
@@ -48,6 +49,7 @@ export default class Routes {
     app.use("/api/fms", fmsRoute); /** Finance API **/
     app.use("/api/hrs", hrsRoute); /** HRS API **/
     app.use("/api/evs", evsRoute); /** Electa API **/
+    app.use("/api/v1", apiRoute); /** Bank API **/
     
     // Initialize Server
     app.listen(port, () => console.log(`⚡️[server]: Server is running at http://localhost:${port}`));

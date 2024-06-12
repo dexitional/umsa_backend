@@ -455,9 +455,9 @@ model student {
   id                String             @id @unique
   indexno           String?            @unique @db.VarChar(50)
   titleId           String?
-  fname             String?             @db.VarChar(255)
+  fname             String?            @db.VarChar(255)
   mname             String?            @db.VarChar(350)
-  lname             String?             @db.VarChar(255)
+  lname             String?            @db.VarChar(255)
   gender            String?            @db.VarChar(20)
   dob               DateTime?          @db.DateTime(3)
   maritalId         String?
@@ -879,23 +879,25 @@ model bankacc {
 }
 
 model bill {
-  id                String            @id @default(uuid())
+  id                String             @id @default(uuid())
   sessionId         String
   bankaccId         String?
   programId         String?
-  studentIds        Json?
-  mainGroupCode     String            @db.VarChar(4)
-  discountGroupCode String            @db.VarChar(4)
-  narrative         String            @db.VarChar(255)
-  type              billGroup         @default(GH)
-  residentialStatus residentialStatus @default(RESIDENTIAL)
-  currency          currency          @default(GHC)
+  includeStudentIds Json?
+  excludeStudentIds Json?
+  mainGroupCode     String             @db.VarChar(4)
+  discountGroupCode String?            @db.VarChar(4)
+  narrative         String             @db.VarChar(255)
+  type              billGroup          @default(GH)
+  residentialStatus residentialStatus? @default(RESIDENTIAL)
+  currency          currency           @default(GHC)
   amount            Float
-  discount          Float
-  quota             Float
-  posted            Boolean           @default(true)
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  discount          Float?
+  quota             Float?
+  posted            Boolean            @default(true)
+  status            Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
   session session? @relation(fields: [sessionId], references: [id])
   bankacc bankacc? @relation(fields: [bankaccId], references: [id])
@@ -944,7 +946,7 @@ model collector {
 model transtype {
   id         Int        @id @default(autoincrement())
   title      String     @db.VarChar(255)
-  visibility visibility
+  visibility visibility @default(PUBLIC)
   status     Boolean    @default(true)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
@@ -963,8 +965,8 @@ model transaction {
   studentId   String?
   reference   String?
   transtag    String
-  payType     payType  @default(BANK)
-  feeType     feeType  @default(NORMAL)
+  payType     payType? @default(BANK)
+  feeType     feeType? @default(NORMAL)
   currency    currency @default(GHC)
   amount      Float
   createdAt   DateTime @default(now())
@@ -978,6 +980,9 @@ model transaction {
   studentAccount         studentAccount[]
   activityFinanceVoucher activityFinanceVoucher[]
 
+  @@index([transtag])
+  @@index([studentId])
+  @@index([reference])
   @@map("fms_transaction")
 }
 
@@ -996,19 +1001,19 @@ model servicefee {
 }
 
 model studentAccount {
-  id         String       @id @default(uuid())
+  id         String        @id @default(uuid())
   studentId  String?
   transactId String?
   sessionId  String?
   chargeId   String?
   billId     String?
-  type       transactType
-  narrative  String       @db.VarChar(255)
-  currency   currency     @default(GHC)
+  type       transactType?
+  narrative  String        @db.VarChar(255)
+  currency   currency      @default(GHC)
   amount     Float
-  status     Boolean      @default(true)
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  status     Boolean       @default(true)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   student     student?     @relation(fields: [studentId], references: [id])
   transaction transaction? @relation(fields: [transactId], references: [id])
@@ -1016,6 +1021,11 @@ model studentAccount {
   charge      charge?      @relation(fields: [chargeId], references: [id])
   bill        bill?        @relation(fields: [billId], references: [id])
 
+  @@index([billId])
+  @@index([chargeId])
+  @@index([narrative])
+  @@index([studentId])
+  @@index([sessionId])
   @@map("fms_studaccount")
 }
 
@@ -1034,10 +1044,10 @@ model activityFinanceVoucher {
   id          String   @id @default(uuid())
   transactId  String?
   admissionId String?
-  serial      Int?
+  serial      String?
   pin         String?  @db.VarChar(8)
   buyerName   String   @db.VarChar(255)
-  buyerPhone  String   @db.VarChar(10)
+  buyerPhone  String   @db.VarChar(15)
   smsCode     Int?
   generated   Boolean  @default(true)
   createdAt   DateTime @default(now())

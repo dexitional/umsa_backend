@@ -9,7 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rotateImage = exports.decodeBase64Image = exports.getBillCodePrisma = exports.getGradePoint = exports.getGrade = void 0;
+exports.apiLogger = exports.rotateImage = exports.decodeBase64Image = exports.getSemesterFromCode = exports.getBillCodePrisma = exports.getGradePoint = exports.getGrade = void 0;
 const getGrade = (num, grades) => {
     if (num == null)
         return 'I';
@@ -36,6 +36,36 @@ const getBillCodePrisma = (semesterNum) => {
         return [{ mainGroupCode: { contains: '0010' } }, { mainGroupCode: { contains: '0011' } }, { mainGroupCode: { contains: '1010' } }, { mainGroupCode: { contains: '1011' } }, { mainGroupCode: { contains: '1111' } }, { mainGroupCode: { contains: '0110' } }, { mainGroupCode: { contains: '0111' } }];
 };
 exports.getBillCodePrisma = getBillCodePrisma;
+const getSemesterFromCode = (semester, code) => {
+    const levels = code.split("");
+    const lvs = [];
+    if (levels.length) {
+        for (let i = 0; i < levels.length; i++) {
+            if (semester == 1) {
+                if (levels[i] && i == 0)
+                    lvs.push(1);
+                if (levels[i] && i == 1)
+                    lvs.push(3);
+                if (levels[i] && i == 2)
+                    lvs.push(5);
+                if (levels[i] && i == 3)
+                    lvs.push(7);
+            }
+            else {
+                if (levels[i] && i == 0)
+                    lvs.push(2);
+                if (levels[i] && i == 1)
+                    lvs.push(4);
+                if (levels[i] && i == 2)
+                    lvs.push(6);
+                if (levels[i] && i == 3)
+                    lvs.push(8);
+            }
+        }
+    }
+    return lvs === null || lvs === void 0 ? void 0 : lvs.join(',');
+};
+exports.getSemesterFromCode = getSemesterFromCode;
 const decodeBase64Image = (dataString) => {
     var matches = dataString.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/), response = {};
     if (matches.length !== 3)
@@ -57,3 +87,20 @@ const rotateImage = (imageFile) => __awaiter(void 0, void 0, void 0, function* (
     }).write(imageFile);
 });
 exports.rotateImage = rotateImage;
+const apiLogger = (action) => {
+    return (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+        const api = req.query.api;
+        const refno = req.params.refno;
+        const dm = req.body;
+        let dt = {};
+        if (refno)
+            dt.studentId = refno;
+        if (api)
+            dt.apiToken = api;
+        if (dm && Object.keys(dm).length > 0)
+            dt.data = dm;
+        //const log = await SSO.apilogger(parseIp(req),action,dt)
+        return next();
+    });
+};
+exports.apiLogger = apiLogger;

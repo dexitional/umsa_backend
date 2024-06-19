@@ -54,6 +54,8 @@ class FmsRoute {
         this.router.post('/vsales', this.controller.postVsale);
         this.router.patch('/vsales/:id', this.controller.updateVsale);
         this.router.delete('/vsales/:id', this.controller.deleteVsale);
+        /* FMS Helpers */
+        this.router.get('/bankaccs/list', this.controller.fetchBanks);
     }
 }
 exports.default = new FmsRoute().router;

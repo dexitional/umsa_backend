@@ -87,7 +87,8 @@ class FmsController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const resp = yield fms.bill.findUnique({
-                    where: { id: req.params.id }
+                    where: { id: req.params.id },
+                    include: { session: true, program: true, bankacc: true },
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -103,22 +104,31 @@ class FmsController {
         });
     }
     includeBill(req, res) {
+        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { tag, action } = req.body;
                 let resp;
-                if (action == 'create')
-                    resp = yield fms.bill.update({
-                        where: { id: req.params.id },
-                        data: { includeStudentIds: { jsonb_set: { path: '$', value: { tag }, append: true } } }
-                    });
-                else
-                    resp = yield fms.bill.update({
-                        where: { id: req.params.id, includeStudentIds: { path: '$', array_contains: tag } },
-                        data: {
-                            includeStudentIds: { jsonb_remove: { path: '$' } }
-                        }
-                    });
+                const bs = yield fms.bill.findUnique({ where: { id: req.params.id } });
+                if (action == 'create') {
+                    const stdata = { studentId: tag, sessionId: bs === null || bs === void 0 ? void 0 : bs.sessionId, billId: bs === null || bs === void 0 ? void 0 : bs.id, type: 'BILL', narrative: bs === null || bs === void 0 ? void 0 : bs.narrative, currency: bs === null || bs === void 0 ? void 0 : bs.currency, amount: bs === null || bs === void 0 ? void 0 : bs.amount };
+                    // Save into Student Account
+                    const st = yield fms.studentAccount.findFirst({ where: { studentId: tag, billId: bs === null || bs === void 0 ? void 0 : bs.id } });
+                    if (st)
+                        yield fms.studentAccount.updateMany({ where: { studentId: tag, billId: bs === null || bs === void 0 ? void 0 : bs.id }, data: stdata });
+                    else
+                        yield fms.studentAccount.create({ data: stdata });
+                    // Update Bill IncludeStudentIds Records
+                    const includeStudentIds = (bs === null || bs === void 0 ? void 0 : bs.includeStudentIds) ? [tag, ...bs === null || bs === void 0 ? void 0 : bs.includeStudentIds] : [tag];
+                    resp = yield fms.bill.update({ where: { id: req.params.id }, data: { includeStudentIds } });
+                }
+                else {
+                    // Delete Bill from Student Account
+                    yield fms.studentAccount.deleteMany({ where: { studentId: tag, billId: bs === null || bs === void 0 ? void 0 : bs.id } });
+                    // Update Bill IncludeStudentIds Records
+                    const includeStudentIds = (_a = bs === null || bs === void 0 ? void 0 : bs.includeStudentIds) === null || _a === void 0 ? void 0 : _a.filter((r) => r != tag);
+                    resp = yield fms.bill.update({ where: { id: req.params.id }, data: { includeStudentIds } });
+                }
                 if (resp) {
                     res.status(200).json(resp);
                 }
@@ -188,10 +198,7 @@ class FmsController {
         var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const bs = yield fms.bill.findUnique({
-                    where: { id: req.params.id },
-                    include: { session: true }
-                });
+                const bs = yield fms.bill.findUnique({ where: { id: req.params.id }, include: { session: true } });
                 if (bs) {
                     let students = [];
                     // Locate Students that Bill should Apply
@@ -203,7 +210,7 @@ class FmsController {
                         students = [...st.map((r) => r.id)];
                     // Locate Included Students
                     if ((_b = bs === null || bs === void 0 ? void 0 : bs.includeStudentIds) === null || _b === void 0 ? void 0 : _b.length)
-                        students = [...bs === null || bs === void 0 ? void 0 : bs.includeStudentIds];
+                        students = [...students, ...bs === null || bs === void 0 ? void 0 : bs.includeStudentIds];
                     // Remove Excluded Students
                     if ((_c = bs === null || bs === void 0 ? void 0 : bs.excludeStudentIds) === null || _c === void 0 ? void 0 : _c.length)
                         students = students === null || students === void 0 ? void 0 : students.filter((r) => !(bs === null || bs === void 0 ? void 0 : bs.excludeStudentIds.includes(r)));
@@ -217,7 +224,7 @@ class FmsController {
                                 sessionId: bs === null || bs === void 0 ? void 0 : bs.sessionId,
                                 billId: bs === null || bs === void 0 ? void 0 : bs.id,
                                 type: 'BILL',
-                                narrative: bs === null || bs === void 0 ? void 0 : bs.title,
+                                narrative: bs === null || bs === void 0 ? void 0 : bs.narrative,
                                 currency: bs === null || bs === void 0 ? void 0 : bs.currency,
                                 amount: bs === null || bs === void 0 ? void 0 : bs.amount
                             });
@@ -293,7 +300,7 @@ class FmsController {
                 delete req.body.sessionId;
                 delete req.body.bankaccId;
                 delete req.body.programId;
-                const resp = yield fms.admission.update({
+                const resp = yield fms.bill.update({
                     where: {
                         id: req.params.id
                     },
@@ -1263,6 +1270,26 @@ class FmsController {
                 }
                 else {
                     res.status(204).json({ message: `No records deleted` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchBanks(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield fms.bankacc.findMany({
+                    where: { status: true },
+                    orderBy: { createdAt: 'desc' }
+                });
+                if (resp === null || resp === void 0 ? void 0 : resp.length) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(204).json({ message: `no record found` });
                 }
             }
             catch (error) {

@@ -894,7 +894,7 @@ model bill {
   amount            Float
   discount          Float?
   quota             Float?
-  posted            Boolean            @default(true)
+  posted            Boolean            @default(false)
   status            Boolean            @default(true)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -905,8 +905,23 @@ model bill {
 
   studentAccount studentAccount[]
   fresher        fresher[]
+  activityBill   activityBill[]
 
   @@map("fms_bill")
+}
+
+model activityBill {
+  id        String   @id @default(uuid())
+  billId    String?
+  userId    Int?
+  receivers Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bill bill? @relation(fields: [billId], references: [id])
+  user user? @relation(fields: [userId], references: [id])
+
+  @@map("fms_activity_bill")
 }
 
 model charge {
@@ -1758,9 +1773,10 @@ model user {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  group    group?     @relation(fields: [groupId], references: [id], onDelete: NoAction)
-  userRole userRole[]
-  provider provider[]
+  group        group?         @relation(fields: [groupId], references: [id], onDelete: NoAction)
+  userRole     userRole[]
+  provider     provider[]
+  activityBill activityBill[]
 
   @@map("sso_user")
 }

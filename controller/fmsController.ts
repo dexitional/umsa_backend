@@ -80,7 +80,8 @@ export default class FmsController {
   async fetchBill(req: Request,res: Response) {
       try {
          const resp = await fms.bill.findUnique({
-            where: { id: req.params.id }
+            where: { id: req.params.id },
+            include: { session: true, program: true, bankacc: true },
          })
          if(resp){
             res.status(200).json(resp)
@@ -97,19 +98,26 @@ export default class FmsController {
    try {
       const { tag, action } = req.body;
       let resp;
-      if(action == 'create') 
-         resp = await fms.bill.update({
-            where: { id: req.params.id },
-            data: { includeStudentIds: { jsonb_set: { path: '$', value: { tag }, append: true } } }
-         })
-      else 
-         resp = await fms.bill.update({
-            where: { id: req.params.id, includeStudentIds: { path:'$', array_contains: tag } },
-            data: { 
-              includeStudentIds:  { jsonb_remove: {  path: '$' } }  
-            }
-         })
+      const bs:any = await fms.bill.findUnique({ where: { id: req.params.id }})
       
+      if(action == 'create'){
+         const stdata:any =  { studentId: tag, sessionId: bs?.sessionId, billId: bs?.id, type: 'BILL', narrative: bs?.narrative, currency: bs?.currency, amount: bs?.amount }
+         // Save into Student Account
+         const st = await fms.studentAccount.findFirst({ where:{ studentId: tag, billId: bs?.id } })
+         if(st) await fms.studentAccount.updateMany({ where: { studentId: tag, billId: bs?.id }, data: stdata });
+         else   await fms.studentAccount.create({ data : stdata });
+         // Update Bill IncludeStudentIds Records
+         const includeStudentIds:any =  bs?.includeStudentIds ? [ tag, ...bs?.includeStudentIds ] : [ tag ];
+         resp = await fms.bill.update({ where: { id: req.params.id }, data: { includeStudentIds } });
+
+      } else {
+         // Delete Bill from Student Account
+         await fms.studentAccount.deleteMany({ where:{ studentId: tag, billId: bs?.id } })
+         // Update Bill IncludeStudentIds Records
+         const includeStudentIds:any = bs?.includeStudentIds?.filter((r:any) =>  r != tag);
+         resp = await fms.bill.update({ where: { id: req.params.id }, data: { includeStudentIds } });
+      }
+
       if(resp){
          res.status(200).json(resp)
       } else {
@@ -170,33 +178,30 @@ export default class FmsController {
 
   async activateBill(req: Request,res: Response) {
       try {
-         const bs:any = await fms.bill.findUnique({
-            where: { id: req.params.id },
-            include: { session: true }
-         })
+         const bs:any = await fms.bill.findUnique({ where: { id: req.params.id }, include: { session: true } });
          if(bs){
             let students:any = []
             // Locate Students that Bill should Apply
             const semesters = await getSemesterFromCode(bs.session?.semester,bs.mainGroupCode);
             const st:any = bs?.tag == 'sub'
-                  ? await fms.$queryRaw`select id from ais_student where programId = ${bs?.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum <= 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum in (3))) and entryGroup = ${bs?.type} and semesterNum in (${semesters})`
-                  : await fms.$queryRaw`select id from ais_student where programId = ${bs?.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum > 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum not in (1,3)) or (date_format(entryDate,'%m') <> '01')) and entryGroup = ${bs?.type} and semesterNum in (${semesters})`;
+               ? await fms.$queryRaw`select id from ais_student where programId = ${bs?.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum <= 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum in (3))) and entryGroup = ${bs?.type} and semesterNum in (${semesters})`
+               : await fms.$queryRaw`select id from ais_student where programId = ${bs?.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum > 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum not in (1,3)) or (date_format(entryDate,'%m') <> '01')) and entryGroup = ${bs?.type} and semesterNum in (${semesters})`;
             if(st?.length) students = [ ... st.map((r:any) => r.id) ];
             // Locate Included Students
-            if(bs?.includeStudentIds?.length) students = [ ...bs?.includeStudentIds ];
+            if(bs?.includeStudentIds?.length) students = [ ...students, ...bs?.includeStudentIds ];
             // Remove Excluded Students
             if(bs?.excludeStudentIds?.length) students = students?.filter((r:any) => !bs?.excludeStudentIds.includes(r));
             // Insert bills in student accounts
             if(students?.length){
                const stdata = await Promise.all(students?.map( async (r:any) => {  
-                  const ss = await fms.student.findFirst({ where: { OR: [{ id: r},{ indexno: r }]}});
+                  const ss = await fms.student.findFirst({ where: { OR: [{ id: r },{ indexno: r }]}});
                   const studentId = ss?.id; 
                   return ({
                       studentId,
                       sessionId: bs?.sessionId,
                       billId: bs?.id,
                       type: 'BILL',
-                      narrative: bs?.title,
+                      narrative: bs?.narrative,
                       currency: bs?.currency,
                       amount: bs?.amount
                   })
@@ -268,7 +273,7 @@ export default class FmsController {
          delete req.body.sessionId;  delete req.body.bankaccId;
          delete req.body.programId;
       
-         const resp = await fms.admission.update({
+         const resp = await fms.bill.update({
             where: { 
                id: req.params.id 
             },
@@ -1145,118 +1150,135 @@ export default class FmsController {
 
    /* Voucher Costs */
    async fetchVsales(req: Request,res: Response) {
-      const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
-      const offset = (page - 1) * pageSize;
-      let searchCondition = { }
-      try {
-         if(keyword) searchCondition = { 
-            where: { 
-               OR: [
-                  { title: { contains: keyword } },
-                  { category: { title: { contains: keyword }} },
-               ],
-            }
+   const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
+   const offset = (page - 1) * pageSize;
+   let searchCondition = { }
+   try {
+      if(keyword) searchCondition = { 
+         where: { 
+            OR: [
+               { title: { contains: keyword } },
+               { category: { title: { contains: keyword }} },
+            ],
          }
-         const resp = await fms.$transaction([
-            fms.amsPrice.count({
-               ...(searchCondition),
-            }),
-            fms.amsPrice.findMany({
-               ...(searchCondition),
-               include: { category: true },
-               skip: offset,
-               take: Number(pageSize),
-            })
-         ]);
-         
-         if(resp && resp[1]?.length){
-            res.status(200).json({
-               totalPages: Math.ceil(resp[0]/pageSize) ?? 0,
-               totalData: resp[1]?.length,
-               data: resp[1],
-            })
+      }
+      const resp = await fms.$transaction([
+         fms.amsPrice.count({
+            ...(searchCondition),
+         }),
+         fms.amsPrice.findMany({
+            ...(searchCondition),
+            include: { category: true },
+            skip: offset,
+            take: Number(pageSize),
+         })
+      ]);
+      
+      if(resp && resp[1]?.length){
+         res.status(200).json({
+            totalPages: Math.ceil(resp[0]/pageSize) ?? 0,
+            totalData: resp[1]?.length,
+            data: resp[1],
+         })
+      } else {
+         res.status(204).json({ message: `no records found` })
+      }
+   } catch (error: any) {
+      console.log(error)
+      return res.status(500).json({ message: error.message }) 
+   }
+   }
+
+   async fetchVsale(req: Request,res: Response) {
+      try {
+         const resp = await fms.amsPrice.findUnique({
+            where: { id: req.params.id }
+         })
+         if(resp){
+            res.status(200).json(resp)
          } else {
-            res.status(204).json({ message: `no records found` })
+            res.status(204).json({ message: `no record found` })
          }
       } catch (error: any) {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-      }
-   
-      async fetchVsale(req: Request,res: Response) {
-         try {
-            const resp = await fms.amsPrice.findUnique({
-               where: { id: req.params.id }
-            })
-            if(resp){
-               res.status(200).json(resp)
-            } else {
-               res.status(204).json({ message: `no record found` })
+   }
+
+   async postVsale(req: Request,res: Response) {
+      try {
+         const { categoryId } = req.body
+         delete req.body.categoryId; 
+         const resp = await fms.servicefee.create({
+            data: {
+               ... req.body,
+               ... categoryId && ({ category: { connect: { id: categoryId }}}),
             }
-         } catch (error: any) {
-            console.log(error)
-            return res.status(500).json({ message: error.message }) 
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no records found` })
          }
+         
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
       }
-   
-      async postVsale(req: Request,res: Response) {
-         try {
-            const { categoryId } = req.body
-            delete req.body.categoryId; 
-            const resp = await fms.servicefee.create({
-               data: {
-                 ... req.body,
-                 ... categoryId && ({ category: { connect: { id: categoryId }}}),
-               }
-            })
-            if(resp){
-               res.status(200).json(resp)
-            } else {
-               res.status(204).json({ message: `no records found` })
+   }
+
+   async updateVsale(req: Request,res: Response) {
+      try {
+         const { categoryId } = req.body
+         delete req.body.categoryId; 
+         const resp = await fms.amsPrice.update({
+            where: { id: req.params.id },
+            data: {
+               ... req.body,
+               ... categoryId && ({ category: { connect: { id: categoryId }}}),
             }
-            
-         } catch (error: any) {
-            console.log(error)
-            return res.status(500).json({ message: error.message }) 
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `No records found` })
          }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
       }
-   
-      async updateVsale(req: Request,res: Response) {
-         try {
-            const { categoryId } = req.body
-            delete req.body.categoryId; 
-            const resp = await fms.amsPrice.update({
-               where: { id: req.params.id },
-               data: {
-                 ... req.body,
-                 ... categoryId && ({ category: { connect: { id: categoryId }}}),
-               }
-            })
-            if(resp){
-               res.status(200).json(resp)
-            } else {
-               res.status(204).json({ message: `No records found` })
-            }
-         } catch (error: any) {
-            console.log(error)
-            return res.status(500).json({ message: error.message }) 
+   }
+
+   async deleteVsale(req: Request,res: Response) {
+      try {
+         const resp = await fms.amsPrice.delete({ where: { id: req.params.id } })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `No records deleted` })
          }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
       }
+   }
    
-      async deleteVsale(req: Request,res: Response) {
-         try {
-            const resp = await fms.amsPrice.delete({ where: { id: req.params.id } })
-            if(resp){
-               res.status(200).json(resp)
-            } else {
-               res.status(204).json({ message: `No records deleted` })
-            }
-         } catch (error: any) {
-            console.log(error)
-            return res.status(500).json({ message: error.message }) 
+   
+   async fetchBanks(req: Request,res: Response) {
+      try {
+         const resp = await fms.bankacc.findMany({
+            where: { status: true },
+            orderBy: { createdAt: 'desc'}
+         })
+         if(resp?.length){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
          }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
       }
-   
+   }
 
 }

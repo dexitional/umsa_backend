@@ -579,6 +579,15 @@ exports.Prisma.BillScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.ActivityBillScalarFieldEnum = {
+  id: 'id',
+  billId: 'billId',
+  userId: 'userId',
+  receivers: 'receivers',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.ChargeScalarFieldEnum = {
   id: 'id',
   studentId: 'studentId',
@@ -1582,6 +1591,7 @@ exports.Prisma.ModelName = {
   resit: 'resit',
   bankacc: 'bankacc',
   bill: 'bill',
+  activityBill: 'activityBill',
   charge: 'charge',
   collector: 'collector',
   transtype: 'transtype',

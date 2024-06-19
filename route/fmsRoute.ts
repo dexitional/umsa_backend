@@ -53,13 +53,18 @@ class FmsRoute {
       this.router.patch('/services/:id', this.controller.updateService);
       this.router.delete('/services/:id', this.controller.deleteService);
 
-       /* Form Vouchers & Cost */
+      /* Form Vouchers & Cost */
       this.router.get('/vsales', this.controller.fetchVsales);
       this.router.get('/vsales/:id', this.controller.fetchVsale);
       this.router.post('/vsales', this.controller.postVsale);
       this.router.patch('/vsales/:id', this.controller.updateVsale);
       this.router.delete('/vsales/:id', this.controller.deleteVsale);
       
+      /* FMS Helpers */
+      this.router.get('/bankaccs/list', this.controller.fetchBanks);
+      
+      
+
     }
 
    

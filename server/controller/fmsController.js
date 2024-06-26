@@ -30,7 +30,7 @@ class FmsController {
                 const resp = yield fms.bill.findMany({
                     where: { status: true },
                     include: { session: true, program: true, bankacc: true },
-                    orderBy: { createdAt: 'asc' }
+                    orderBy: { createdAt: 'desc' }
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -64,7 +64,7 @@ class FmsController {
                     };
                 const resp = yield fms.$transaction([
                     fms.bill.count(Object.assign({}, (searchCondition))),
-                    fms.bill.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { session: true, program: true, bankacc: true }, skip: offset, take: Number(pageSize) }))
+                    fms.bill.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { session: true, program: true, bankacc: true }, skip: offset, take: Number(pageSize), orderBy: { createdAt: 'desc' } }))
                 ]);
                 if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
                     res.status(200).json({
@@ -194,6 +194,25 @@ class FmsController {
             }
         });
     }
+    billActivity(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield fms.activityBill.findMany({
+                    where: { billId: req.params.id }
+                });
+                if (resp === null || resp === void 0 ? void 0 : resp.length) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(204).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
     activateBill(req, res) {
         var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
@@ -203,9 +222,10 @@ class FmsController {
                     let students = [];
                     // Locate Students that Bill should Apply
                     const semesters = yield (0, helper_1.getSemesterFromCode)((_a = bs.session) === null || _a === void 0 ? void 0 : _a.semester, bs.mainGroupCode);
+                    console.log(semesters);
                     const st = (bs === null || bs === void 0 ? void 0 : bs.tag) == 'sub'
-                        ? yield fms.$queryRaw `select id from ais_student where programId = ${bs === null || bs === void 0 ? void 0 : bs.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum <= 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum in (3))) and entryGroup = ${bs === null || bs === void 0 ? void 0 : bs.type} and semesterNum in (${semesters})`
-                        : yield fms.$queryRaw `select id from ais_student where programId = ${bs === null || bs === void 0 ? void 0 : bs.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum > 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum not in (1,3)) or (date_format(entryDate,'%m') <> '01')) and entryGroup = ${bs === null || bs === void 0 ? void 0 : bs.type} and semesterNum in (${semesters})`;
+                        ? yield fms.$queryRaw `select id from ais_student where programId = ${bs === null || bs === void 0 ? void 0 : bs.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum <= 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum in (3))) and entryGroup = ${bs === null || bs === void 0 ? void 0 : bs.type} and semesterNum in (${semesters}) and deferStatus = 0 and completeStatus = 0`
+                        : yield fms.$queryRaw `select id from ais_student where programId = ${bs === null || bs === void 0 ? void 0 : bs.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum > 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum not in (1,3)) or (date_format(entryDate,'%m') <> '01')) and entryGroup = ${bs === null || bs === void 0 ? void 0 : bs.type} and semesterNum in (${semesters}) and deferStatus = 0 and completeStatus = 0`;
                     if (st === null || st === void 0 ? void 0 : st.length)
                         students = [...st.map((r) => r.id)];
                     // Locate Included Students
@@ -231,8 +251,17 @@ class FmsController {
                         })));
                         const ups = yield fms.studentAccount.createMany({ data: stdata });
                         if (ups === null || ups === void 0 ? void 0 : ups.count) {
-                            // Update bill status
+                            // Retire Student Accounts
+                            yield Promise.all(students === null || students === void 0 ? void 0 : students.map((studentId) => __awaiter(this, void 0, void 0, function* () {
+                                var _d;
+                                const bal = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+                                yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_d = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _d === void 0 ? void 0 : _d.amount } });
+                            })));
+                            // Update bill Status
                             const bs = yield fms.bill.update({ where: { id: req.params.id }, data: { posted: true } });
+                            // Log Publish Activity & Receipients
+                            yield fms.activityBill.create({ data: { billId: bs === null || bs === void 0 ? void 0 : bs.id, amount: bs === null || bs === void 0 ? void 0 : bs.amount, discount: bs === null || bs === void 0 ? void 0 : bs.discount, receivers: students } });
+                            // Return Response
                             res.status(200).json(bs);
                         }
                         else {
@@ -253,11 +282,20 @@ class FmsController {
     revokeBill(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                // Remove Bill from student accounts
-                const sts = yield fms.studentAccount.deleteMany({ where: { billId: req.params.id } });
+                const sts = yield fms.studentAccount.findMany({ where: { billId: req.params.id } });
                 // Update Bill status
                 const resp = yield fms.bill.update({ where: { id: req.params.id }, data: { posted: false } });
-                if ((sts === null || sts === void 0 ? void 0 : sts.count) && resp) {
+                if ((sts === null || sts === void 0 ? void 0 : sts.length) && resp) {
+                    // Remove Bill from student accounts
+                    yield fms.studentAccount.deleteMany({ where: { billId: req.params.id } });
+                    // Retire Student Accounts
+                    yield Promise.all(sts === null || sts === void 0 ? void 0 : sts.map((account) => __awaiter(this, void 0, void 0, function* () {
+                        var _a;
+                        const { studentId } = account;
+                        const bal = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+                        yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_a = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _a === void 0 ? void 0 : _a.amount } });
+                    })));
+                    // Return Response
                     res.status(200).json(resp);
                 }
                 else {
@@ -364,7 +402,7 @@ class FmsController {
                     };
                 const resp = yield fms.$transaction([
                     fms.charge.count(Object.assign({}, (searchCondition))),
-                    fms.charge.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { student: true }, skip: offset, take: Number(pageSize) }))
+                    fms.charge.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { student: { include: { program: true } } }, skip: offset, take: Number(pageSize), orderBy: { createdAt: 'desc' } }))
                 ]);
                 if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
                     res.status(200).json({
@@ -402,8 +440,40 @@ class FmsController {
             }
         });
     }
-    postCharge(req, res) {
+    lateCharge(req, res) {
         var _a, _b, _c;
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { studentId } = req.body;
+                const st = yield fms.student.findUnique({ where: { id: studentId } });
+                const charge = yield fms.transtype.findFirst({ where: { id: 8 }, include: { servicefee: true } });
+                if (st && charge) {
+                    const fine = (st === null || st === void 0 ? void 0 : st.entryGroup) == 'GH' ? (_a = charge === null || charge === void 0 ? void 0 : charge.servicefee[0]) === null || _a === void 0 ? void 0 : _a.amountInGhc : (_b = charge === null || charge === void 0 ? void 0 : charge.servicefee[0]) === null || _b === void 0 ? void 0 : _b.amountInUsd;
+                    const resp = yield fms.charge.create({
+                        data: Object.assign(Object.assign({ title: `LATE REGISTRATION FINE`, type: 'FINE', currency: st.entryGroup == 'GH' ? 'GHC' : 'USD', amount: parseFloat(fine), posted: true }, studentId && ({ student: { connect: { id: studentId } } })), { studentAccount: {
+                                createMany: {
+                                    data: { studentId: st === null || st === void 0 ? void 0 : st.id, currency: st.entryGroup == 'GH' ? 'GHC' : 'USD', amount: parseFloat(fine), type: 'CHARGE', narrative: `LATE REGISTRATION FINE` }
+                                }
+                            } })
+                    });
+                    // Retire Accounts
+                    const bal = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+                    yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_c = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _c === void 0 ? void 0 : _c.amount } });
+                    // Return Response
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(204).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    postCharge(req, res) {
+        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { studentId } = req.body;
@@ -413,7 +483,7 @@ class FmsController {
                             create: {
                                 data: {
                                     studentId,
-                                    narrative: (_a = req === null || req === void 0 ? void 0 : req.body) === null || _a === void 0 ? void 0 : _a.narrative,
+                                    narrative: (_a = req === null || req === void 0 ? void 0 : req.body) === null || _a === void 0 ? void 0 : _a.title,
                                     amount: (_b = req === null || req === void 0 ? void 0 : req.body) === null || _b === void 0 ? void 0 : _b.amount,
                                     type: 'CHARGE',
                                     currency: (_c = req === null || req === void 0 ? void 0 : req.body) === null || _c === void 0 ? void 0 : _c.currency,
@@ -422,6 +492,9 @@ class FmsController {
                         } })
                 });
                 if (resp) {
+                    // Retire Account
+                    const bal = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+                    yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_d = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _d === void 0 ? void 0 : _d.amount } });
                     // Create record in student account
                     res.status(200).json(resp);
                 }
@@ -436,20 +509,19 @@ class FmsController {
         });
     }
     updateCharge(req, res) {
-        var _a, _b, _c;
+        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { studentId } = req.body;
                 delete req.body.studentId;
                 const resp = yield fms.charge.update({
-                    where: {
-                        id: req.params.id
-                    },
+                    where: { id: req.params.id },
                     data: Object.assign(Object.assign(Object.assign({}, req.body), studentId && ({ student: { connect: { id: studentId } } })), { studentAccount: {
-                            update: {
+                            updateMany: {
+                                where: { studentId },
                                 data: {
                                     studentId,
-                                    narrative: (_a = req === null || req === void 0 ? void 0 : req.body) === null || _a === void 0 ? void 0 : _a.narrative,
+                                    narrative: (_a = req === null || req === void 0 ? void 0 : req.body) === null || _a === void 0 ? void 0 : _a.title,
                                     amount: (_b = req === null || req === void 0 ? void 0 : req.body) === null || _b === void 0 ? void 0 : _b.amount,
                                     type: 'CHARGE',
                                     currency: (_c = req === null || req === void 0 ? void 0 : req.body) === null || _c === void 0 ? void 0 : _c.currency,
@@ -458,6 +530,10 @@ class FmsController {
                         } })
                 });
                 if (resp) {
+                    // Retire Accounts
+                    const bal = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+                    yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_d = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _d === void 0 ? void 0 : _d.amount } });
+                    // Return Response
                     res.status(200).json(resp);
                 }
                 else {
@@ -471,16 +547,20 @@ class FmsController {
         });
     }
     deleteCharge(req, res) {
+        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const bs = yield fms.charge.update({
                     where: { id: req.params.id },
-                    data: {
-                        studentAccount: { deleteMany: { chargeId: req.params.id } }
-                    }
+                    data: { studentAccount: { deleteMany: { chargeId: req.params.id } } }
                 });
                 if (bs) {
+                    const { studentId } = bs;
                     const resp = yield fms.charge.delete({ where: { id: req.params.id } });
+                    // Retire Account
+                    const bal = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+                    yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_a = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _a === void 0 ? void 0 : _a.amount } });
+                    // Return Response
                     res.status(200).json(resp);
                 }
                 else {
@@ -518,7 +598,7 @@ class FmsController {
                     };
                 const resp = yield fms.$transaction([
                     fms.transaction.count(Object.assign({}, (searchCondition))),
-                    fms.transaction.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { student: { include: { program: true } }, transtype: true }, skip: offset, take: Number(pageSize) }))
+                    fms.transaction.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { student: { include: { program: true } }, transtype: true }, skip: offset, take: Number(pageSize), orderBy: { createdAt: 'desc' } }))
                 ]);
                 if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
                     res.status(200).json({
@@ -561,7 +641,7 @@ class FmsController {
                     };
                 const resp = yield fms.$transaction([
                     fms.transaction.count(Object.assign({}, (searchCondition))),
-                    fms.transaction.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { student: { include: { program: true } }, transtype: true }, skip: offset, take: Number(pageSize) }))
+                    fms.transaction.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { student: { include: { program: true } }, transtype: true }, skip: offset, take: Number(pageSize), orderBy: { createdAt: 'desc' } }))
                 ]);
                 if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
                     res.status(200).json({
@@ -604,7 +684,7 @@ class FmsController {
                     };
                 const resp = yield fms.$transaction([
                     fms.transaction.count(Object.assign({}, (searchCondition))),
-                    fms.transaction.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { student: { include: { program: true } }, transtype: true }, skip: offset, take: Number(pageSize) }))
+                    fms.transaction.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { transtype: true, activityFinanceVoucher: true }, skip: offset, take: Number(pageSize), orderBy: { createdAt: 'desc' } }))
                 ]);
                 if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
                     res.status(200).json({
@@ -634,6 +714,31 @@ class FmsController {
                 }
                 else {
                     res.status(204).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    convertPayment(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { transactId, transtypeId } = req.body;
+                delete req.body.transactId;
+                delete req.body.transactId;
+                const narrative = `Payment of ${transtypeId == 8 ? 'Graduation' : transtypeId == 3 ? 'Resit' : transtypeId == 8 ? 'Late Registration' : 'Academic'} Fees`;
+                const resp = yield fms.transaction.update({
+                    where: { id: transactId },
+                    data: Object.assign(Object.assign({}, transtypeId && ({ transtype: { connect: { id: transtypeId } } })), transtypeId && ['2', '3', '4', '8'].includes(transtypeId) && ({ studentAccount: { updateMany: { data: { narrative } } } }))
+                });
+                if (resp) {
+                    // Return Response
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(204).json({ message: `no records found` });
                 }
             }
             catch (error) {
@@ -959,7 +1064,6 @@ class FmsController {
                     fms.student.count(Object.assign({}, (searchCondition))),
                     fms.student.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { program: true }, skip: offset, take: Number(pageSize) }))
                 ]);
-                console.log(resp);
                 if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
                     res.status(200).json({
                         totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
@@ -977,9 +1081,37 @@ class FmsController {
             }
         });
     }
+    fetchAccount(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield fms.studentAccount.findMany({
+                    where: { studentId: req.params.id },
+                    include: {
+                        student: { select: { fname: true, mname: true, lname: true, indexno: true, program: { select: { longName: true } } } },
+                        bill: { select: { narrative: true } },
+                        charge: { select: { title: true } },
+                        session: { select: { title: true } },
+                        transaction: { select: { transtag: true } },
+                    },
+                    orderBy: { createdAt: 'asc' }
+                });
+                if (resp.length) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
     fetchDebts(req, res) {
         var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
+            console.log("Depts");
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
             let searchCondition = { where: { accountNet: { gt: 0 } } };
@@ -1000,6 +1132,7 @@ class FmsController {
                     fms.student.count(Object.assign({}, (searchCondition))),
                     fms.student.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { program: true }, skip: offset, take: Number(pageSize) }))
                 ]);
+                console.log(resp);
                 if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
                     res.status(200).json({
                         totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
@@ -1180,7 +1313,7 @@ class FmsController {
                     };
                 const resp = yield fms.$transaction([
                     fms.amsPrice.count(Object.assign({}, (searchCondition))),
-                    fms.amsPrice.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { category: true }, skip: offset, take: Number(pageSize) }))
+                    fms.amsPrice.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { category: true }, skip: offset, take: Number(pageSize), orderBy: { createdAt: 'desc' } }))
                 ]);
                 if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
                     res.status(200).json({
@@ -1223,7 +1356,7 @@ class FmsController {
             try {
                 const { categoryId } = req.body;
                 delete req.body.categoryId;
-                const resp = yield fms.servicefee.create({
+                const resp = yield fms.amsPrice.create({
                     data: Object.assign(Object.assign({}, req.body), categoryId && ({ category: { connect: { id: categoryId } } }))
                 });
                 if (resp) {

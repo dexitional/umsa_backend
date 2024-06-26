@@ -579,6 +579,17 @@ exports.Prisma.BillScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
+exports.Prisma.ActivityBillScalarFieldEnum = {
+  id: 'id',
+  billId: 'billId',
+  userId: 'userId',
+  amount: 'amount',
+  discount: 'discount',
+  receivers: 'receivers',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.ChargeScalarFieldEnum = {
   id: 'id',
   studentId: 'studentId',
@@ -1389,7 +1400,9 @@ exports.residentialStatus = exports.$Enums.residentialStatus = {
 exports.studyMode = exports.$Enums.studyMode = {
   M: 'M',
   W: 'W',
-  E: 'E'
+  E: 'E',
+  A: 'A',
+  f: 'f'
 };
 
 exports.completeType = exports.$Enums.completeType = {
@@ -1582,6 +1595,7 @@ exports.Prisma.ModelName = {
   resit: 'resit',
   bankacc: 'bankacc',
   bill: 'bill',
+  activityBill: 'activityBill',
   charge: 'charge',
   collector: 'collector',
   transtype: 'transtype',

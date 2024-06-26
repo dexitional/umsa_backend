@@ -38,27 +38,28 @@ const getBillCodePrisma = (semesterNum) => {
 exports.getBillCodePrisma = getBillCodePrisma;
 const getSemesterFromCode = (semester, code) => {
     const levels = code.split("");
+    console.log(levels, semester);
     const lvs = [];
     if (levels.length) {
         for (let i = 0; i < levels.length; i++) {
-            if (semester == 1) {
-                if (levels[i] && i == 0)
+            if (semester == 'SEM1') {
+                if (levels[i] == 1 && i == 0)
                     lvs.push(1);
-                if (levels[i] && i == 1)
+                if (levels[i] == 1 && i == 1)
                     lvs.push(3);
-                if (levels[i] && i == 2)
+                if (levels[i] == 1 && i == 2)
                     lvs.push(5);
-                if (levels[i] && i == 3)
+                if (levels[i] == 1 && i == 3)
                     lvs.push(7);
             }
             else {
-                if (levels[i] && i == 0)
+                if (levels[i] == 1 && i == 0)
                     lvs.push(2);
-                if (levels[i] && i == 1)
+                if (levels[i] == 1 && i == 1)
                     lvs.push(4);
-                if (levels[i] && i == 2)
+                if (levels[i] == 1 && i == 2)
                     lvs.push(6);
-                if (levels[i] && i == 3)
+                if (levels[i] == 1 && i == 3)
                     lvs.push(8);
             }
         }

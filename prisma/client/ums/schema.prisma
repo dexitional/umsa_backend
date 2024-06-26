@@ -213,6 +213,8 @@ enum studyMode {
   M
   W
   E
+  A
+  f
 }
 
 enum EvsActionType {
@@ -476,7 +478,7 @@ model student {
   programId         String?
   majorId           String?
   progCount         Int?               @db.Int
-  semesterNum       Int                @db.Int
+  semesterNum       Int?               @db.Int
   semesterDone      Int?               @db.Int
   creditDone        Int?               @db.Int
   entrySemesterNum  Int?               @db.Int
@@ -914,6 +916,8 @@ model activityBill {
   id        String   @id @default(uuid())
   billId    String?
   userId    Int?
+  amount    Float?
+  discount  Float?
   receivers Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

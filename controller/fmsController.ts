@@ -2,9 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { v4 as uuid } from 'uuid';
 import EvsModel from '../model/evsModel'
 import AuthModel from '../model/authModel'
-import { PrismaClient, currency } from '../prisma/client/ums'
+import { PrismaClient } from '../prisma/client/ums'
 import { getSemesterFromCode } from "../util/helper";
-import moment from "moment";
 
 const sms = require('../config/sms');
 const evs = new EvsModel();
@@ -23,7 +22,7 @@ export default class FmsController {
          const resp = await fms.bill.findMany({
              where: { status: true }, 
              include: { session: true, program: true, bankacc: true },
-             orderBy: { createdAt:'asc' } 
+             orderBy: { createdAt:'desc' } 
          })
          if(resp){
             res.status(200).json(resp)
@@ -59,6 +58,7 @@ export default class FmsController {
                include: { session: true, program: true, bankacc: true },
                skip: offset,
                take: Number(pageSize),
+               orderBy: { createdAt:'desc'}
             })
          ]);
          
@@ -176,6 +176,22 @@ export default class FmsController {
       }
   }
 
+  async billActivity(req: Request,res: Response) {
+      try {
+         const resp = await fms.activityBill.findMany({
+            where: { billId: req.params.id }
+         })
+         if(resp?.length){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
   async activateBill(req: Request,res: Response) {
       try {
          const bs:any = await fms.bill.findUnique({ where: { id: req.params.id }, include: { session: true } });
@@ -183,9 +199,10 @@ export default class FmsController {
             let students:any = []
             // Locate Students that Bill should Apply
             const semesters = await getSemesterFromCode(bs.session?.semester,bs.mainGroupCode);
+            console.log(semesters)
             const st:any = bs?.tag == 'sub'
-               ? await fms.$queryRaw`select id from ais_student where programId = ${bs?.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum <= 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum in (3))) and entryGroup = ${bs?.type} and semesterNum in (${semesters})`
-               : await fms.$queryRaw`select id from ais_student where programId = ${bs?.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum > 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum not in (1,3)) or (date_format(entryDate,'%m') <> '01')) and entryGroup = ${bs?.type} and semesterNum in (${semesters})`;
+               ? await fms.$queryRaw`select id from ais_student where programId = ${bs?.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum <= 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum in (3))) and entryGroup = ${bs?.type} and semesterNum in (${semesters}) and deferStatus = 0 and completeStatus = 0`
+               : await fms.$queryRaw`select id from ais_student where programId = ${bs?.programId} and ((date_format(entryDate,'%m') = '01' and semesterNum > 2) or (date_format(entryDate,'%m') = '01' and semesterNum <= 4 and entrySemesterNum not in (1,3)) or (date_format(entryDate,'%m') <> '01')) and entryGroup = ${bs?.type} and semesterNum in (${semesters}) and deferStatus = 0 and completeStatus = 0`;
             if(st?.length) students = [ ... st.map((r:any) => r.id) ];
             // Locate Included Students
             if(bs?.includeStudentIds?.length) students = [ ...students, ...bs?.includeStudentIds ];
@@ -208,8 +225,16 @@ export default class FmsController {
                }))
                const ups = await fms.studentAccount.createMany({ data: stdata })
                if(ups?.count){
-                  // Update bill status
+                  // Retire Student Accounts
+                  await Promise.all(students?.map( async (studentId:any) => {  
+                     const bal:any = await fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+                     await fms.student.update({ where: { id: studentId }, data: { accountNet: bal?._sum?.amount }})
+                  }))
+                  // Update bill Status
                   const bs = await fms.bill.update({ where: { id: req.params.id }, data: { posted: true } })
+                  // Log Publish Activity & Receipients
+                  await fms.activityBill.create({ data: { billId: bs?.id, amount: bs?.amount, discount: bs?.discount, receivers: students  }})
+                  // Return Response
                   res.status(200).json(bs)
                } else {
                   res.status(204).json({ message: `something happened, No bill created` })
@@ -226,11 +251,19 @@ export default class FmsController {
 
   async revokeBill(req: Request,res: Response) {
    try {
-      // Remove Bill from student accounts
-      const sts = await fms.studentAccount.deleteMany({ where: { billId: req.params.id }})
+      const sts = await fms.studentAccount.findMany({ where: { billId: req.params.id }})
       // Update Bill status
       const resp = await fms.bill.update({ where: { id: req.params.id }, data: { posted: false } })
-      if(sts?.count && resp){
+      if(sts?.length && resp){
+         // Remove Bill from student accounts
+         await fms.studentAccount.deleteMany({ where: { billId: req.params.id }})
+         // Retire Student Accounts
+         await Promise.all(sts?.map( async (account:any) => {  
+            const { studentId } = account;
+            const bal:any = await fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+            await fms.student.update({ where: { id: studentId }, data: { accountNet: bal?._sum?.amount }})
+         }))
+         // Return Response
          res.status(200).json(resp)
       } else {
          res.status(204).json({ message: `no record found` })
@@ -339,9 +372,10 @@ export default class FmsController {
          }),
          fms.charge.findMany({
             ...(searchCondition),
-            include: { student: true },
+            include: { student: { include: { program:true } } },
             skip: offset,
             take: Number(pageSize),
+            orderBy: { createdAt:'desc'}
          })
       ]);
       
@@ -376,6 +410,42 @@ export default class FmsController {
       }
    }
 
+   async lateCharge(req: Request,res: Response) {
+      try {
+         const { studentId } = req.body;
+         const st:any = await fms.student.findUnique({ where: { id: studentId } });
+         const charge:any = await fms.transtype.findFirst({ where: { id: 8 }, include: { servicefee: true } })
+         if(st && charge){
+            const fine = st?.entryGroup == 'GH' ? charge?.servicefee[0]?.amountInGhc : charge?.servicefee[0]?.amountInUsd;
+            const resp = await fms.charge.create({ 
+               data: { 
+                  title: `LATE REGISTRATION FINE`, 
+                  type:'FINE',
+                  currency: st.entryGroup == 'GH' ? 'GHC':'USD',
+                  amount: parseFloat(fine),
+                  posted: true,
+                  ... studentId && ({ student: { connect: { id: studentId }}}),
+                  studentAccount: {
+                     createMany: {
+                        data: { studentId: st?.id, currency: st.entryGroup == 'GH' ? 'GHC':'USD', amount: parseFloat(fine),  type:'CHARGE', narrative: `LATE REGISTRATION FINE` }
+                     }
+                  }
+               } 
+            })
+            // Retire Accounts
+            const bal:any = await fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+            await fms.student.update({ where: { id: studentId }, data: { accountNet: bal?._sum?.amount }})
+            // Return Response
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
    async postCharge(req: Request,res: Response) {
       try {
          const { studentId } = req.body
@@ -388,7 +458,7 @@ export default class FmsController {
                   create: { 
                     data: {
                        studentId,
-                       narrative: req?.body?.narrative,
+                       narrative: req?.body?.title,
                        amount: req?.body?.amount,
                        type: 'CHARGE',
                        currency: req?.body?.currency,
@@ -398,6 +468,9 @@ export default class FmsController {
             }
          })
          if(resp){
+            // Retire Account
+            const bal:any = await fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+            await fms.student.update({ where: { id: studentId }, data: { accountNet: bal?._sum?.amount }})
             // Create record in student account
             res.status(200).json(resp)
          } else {
@@ -416,17 +489,16 @@ export default class FmsController {
          delete req.body.studentId;
       
          const resp = await fms.charge.update({
-            where: { 
-               id: req.params.id 
-            },
+            where: { id: req.params.id },
             data: {
                ... req.body,
                ... studentId && ({ student: { connect: { id: studentId }}}),
                studentAccount: { 
-                  update: { 
+                  updateMany: { 
+                    where: { studentId },
                     data: {
                        studentId,
-                       narrative: req?.body?.narrative,
+                       narrative: req?.body?.title,
                        amount: req?.body?.amount,
                        type: 'CHARGE',
                        currency: req?.body?.currency,
@@ -436,6 +508,10 @@ export default class FmsController {
             }
          })
          if(resp){
+            // Retire Accounts
+            const bal:any = await fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+            await fms.student.update({ where: { id: studentId }, data: { accountNet: bal?._sum?.amount }})
+            // Return Response
             res.status(200).json(resp)
          } else {
             res.status(204).json({ message: `No records found` })
@@ -450,12 +526,15 @@ export default class FmsController {
       try {
          const bs = await fms.charge.update({
             where: {  id: req.params.id  },
-            data: {
-               studentAccount: { deleteMany: { chargeId: req.params.id } }
-            }
+            data: { studentAccount: { deleteMany: { chargeId: req.params.id } } }
          })
          if(bs){
+            const { studentId }:any = bs;
             const resp = await fms.charge.delete({ where: {  id: req.params.id  }})
+            // Retire Account
+            const bal:any = await fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
+            await fms.student.update({ where: { id: studentId }, data: { accountNet: bal?._sum?.amount }})
+            // Return Response
             res.status(200).json(resp)
          } else {
             res.status(204).json({ message: `No records deleted` })
@@ -496,6 +575,7 @@ export default class FmsController {
                include: { student: { include: { program: true }}, transtype: true },
                skip: offset,
                take: Number(pageSize),
+               orderBy: { createdAt:'desc'}
             })
          ]);
          
@@ -542,6 +622,7 @@ export default class FmsController {
                include: { student: { include: { program: true }}, transtype: true },
                skip: offset,
                take: Number(pageSize),
+               orderBy: { createdAt:'desc'}
             })
          ]);
          
@@ -585,9 +666,10 @@ export default class FmsController {
             }),
             fms.transaction.findMany({
                ...(searchCondition),
-               include: { student: { include: { program: true }}, transtype: true },
+               include: { transtype: true, activityFinanceVoucher: true },
                skip: offset,
                take: Number(pageSize),
+               orderBy: { createdAt:'desc'}
             })
          ]);
          
@@ -616,6 +698,32 @@ export default class FmsController {
          } else {
             res.status(204).json({ message: `no record found` })
          }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+   
+   async convertPayment(req: Request,res: Response) {
+      try {
+         const { transactId,transtypeId } = req.body
+         delete req.body.transactId; delete req.body.transactId;
+         const narrative = `Payment of ${transtypeId == 8 ? 'Graduation' : transtypeId == 3 ? 'Resit' : transtypeId == 8 ? 'Late Registration' : 'Academic' } Fees`
+         const resp = await fms.transaction.update({
+            where: { id: transactId },
+            data: {
+               ... transtypeId && ({ transtype: { connect: { id: transtypeId }}}),
+               // If Fees,Late,Resit,Graduation transaction
+               ... transtypeId && ['2','3','4','8'].includes(transtypeId) && ({ studentAccount: { updateMany: { data: {  narrative }  }}}),
+            }
+         })
+         if(resp){
+            // Return Response
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no records found` })
+         }
+         
       } catch (error: any) {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
@@ -950,8 +1058,6 @@ export default class FmsController {
             })
          ]);
 
-         console.log(resp)
-         
          if(resp && resp[1]?.length){
             res.status(200).json({
                totalPages: Math.ceil(resp[0]/pageSize) ?? 0,
@@ -967,7 +1073,33 @@ export default class FmsController {
       }
    }
 
+   async fetchAccount(req: Request,res: Response) {
+      try {
+         const resp = await fms.studentAccount.findMany({
+            where: { studentId: req.params.id },
+            include: { 
+               student: { select: { fname: true, mname: true, lname: true, indexno: true, program: { select: { longName: true } } } },
+               bill: { select: { narrative: true }},
+               charge: { select: { title: true }},
+               session: { select: { title: true }},
+               transaction: { select: { transtag: true }},
+            }, 
+            orderBy: { createdAt:'asc'}
+         })
+         if(resp.length){
+            res.status(200).json(resp)
+         } else {
+            res.status(202).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+
    async fetchDebts(req: Request,res: Response) {
+      console.log("Depts")
       const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
       const offset = (page - 1) * pageSize;
       let searchCondition:any = { where: { accountNet: { gt: 0 } } }
@@ -975,10 +1107,10 @@ export default class FmsController {
          if(keyword) searchCondition = { 
             where: { 
                OR: [
-                  { id: { contains: keyword } },
-                  { indexno: { contains: keyword } },
-                  { fname: { contains: keyword } },
-                  { lname: { contains: keyword } },
+                 { id: { contains: keyword } },
+                 { indexno: { contains: keyword } },
+                 { fname: { contains: keyword } },
+                 { lname: { contains: keyword } },
                ],
                AND: [{ accountNet: { gt: 0 } }]
             }
@@ -994,6 +1126,7 @@ export default class FmsController {
                take: Number(pageSize),
             })
          ]);
+         console.log(resp)
          
          if(resp && resp[1]?.length){
             res.status(200).json({
@@ -1171,6 +1304,7 @@ export default class FmsController {
             include: { category: true },
             skip: offset,
             take: Number(pageSize),
+            orderBy: { createdAt:'desc'}
          })
       ]);
       
@@ -1209,7 +1343,7 @@ export default class FmsController {
       try {
          const { categoryId } = req.body
          delete req.body.categoryId; 
-         const resp = await fms.servicefee.create({
+         const resp = await fms.amsPrice.create({
             data: {
                ... req.body,
                ... categoryId && ({ category: { connect: { id: categoryId }}}),

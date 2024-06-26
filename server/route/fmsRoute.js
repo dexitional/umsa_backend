@@ -16,6 +16,7 @@ class FmsRoute {
         this.router.get('/bills', this.controller.fetchBills);
         this.router.get('/bills/list', this.controller.fetchBillList);
         this.router.get('/bills/:id', this.controller.fetchBill);
+        this.router.get('/bills/:id/activity', this.controller.billActivity);
         this.router.get('/bills/:id/receipients', this.controller.billReceivers);
         this.router.post('/bills/:id/include', this.controller.includeBill);
         this.router.post('/bills/:id/exclude', this.controller.excludeBill);
@@ -27,6 +28,7 @@ class FmsRoute {
         /* Charges */
         this.router.get('/charges', this.controller.fetchCharges);
         this.router.get('/charges/:id', this.controller.fetchCharge);
+        this.router.post('/charges/late', this.controller.lateCharge);
         this.router.post('/charges', this.controller.postCharge);
         this.router.patch('/charges/:id', this.controller.updateCharge);
         this.router.delete('/charges/:id', this.controller.deleteCharge);
@@ -35,6 +37,7 @@ class FmsRoute {
         this.router.get('/payments/other', this.controller.fetchPaymentOthers);
         this.router.get('/payments/voucher', this.controller.fetchPaymentVouchers);
         this.router.get('/payments/:id', this.controller.fetchPayment);
+        this.router.post('/payments/convert', this.controller.convertPayment);
         this.router.post('/payments', this.controller.postPayment);
         this.router.patch('/payments/:id', this.controller.updatePayment);
         this.router.delete('/payments/:id', this.controller.deletePayment);
@@ -42,6 +45,7 @@ class FmsRoute {
         this.router.get('/accounts', this.controller.fetchAccounts);
         this.router.get('/accounts/debts', this.controller.fetchDebts);
         this.router.get('/accounts/retire/:tag', this.controller.retireAccount);
+        this.router.get('/accounts/:id', this.controller.fetchAccount);
         /* Services */
         this.router.get('/services', this.controller.fetchServices);
         this.router.get('/services/:id', this.controller.fetchService);

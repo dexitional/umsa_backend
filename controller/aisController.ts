@@ -1,13 +1,12 @@
-import { Request, Response, NextFunction } from "express";
-import { v4 as uuid } from 'uuid';
-import EvsModel from '../model/evsModel'
-import AuthModel from '../model/authModel'
-import { PrismaClient, deferStatus, entryGroup, studyMode } from '../prisma/client/ums'
+import { Request, Response } from "express";
 import moment from "moment";
+import AuthModel from '../model/authModel';
+import EvsModel from '../model/evsModel';
+import { PrismaClient } from '../prisma/client/ums';
 //import sha1 from "sha1";
-import { getBillCodePrisma, getGrade, getGradePoint } from "../util/helper";
-import path from "path";
 import fs from "fs";
+import path from "path";
+import { getBillCodePrisma, getGrade, getGradePoint } from "../util/helper";
 const ais:any = new PrismaClient()
 const evs = new EvsModel();
 const Auth = new AuthModel();
@@ -43,7 +42,7 @@ export default class AisController {
      /* Session */
      async fetchSessionList(req: Request,res: Response) {
          try {
-            const resp = await ais.session.findMany({ where: { status: true }, orderBy: { title:'asc' } })
+            const resp = await ais.session.findMany({ where: { status: true }, orderBy: { createdAt:'desc' } })
             if(resp){
             res.status(200).json(resp)
             } else {
@@ -1590,6 +1589,29 @@ export default class AisController {
    }
 
 
+   /* programs */
+   async fetchMajorList(req: Request,res: Response) {
+      try {
+         const resp = await ais.major.findMany({
+            where: { status: true },
+            include: { 
+              program:{ select: { shortName: true }},
+            }, 
+         })
+         if(resp){
+         res.status(200).json(resp)
+         } else {
+         res.status(202).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+
+
+
      /* Departments */
      async fetchDepartments(req: Request,res: Response) {
       try {
@@ -1964,22 +1986,6 @@ export default class AisController {
       }
    }
 
-   // async fetchJobList(req: Request,res: Response) {
-   //    try {
-   //       const resp = await ais.job.findMany({
-   //          where: { status: true }
-   //       })
-   //       if(resp){
-   //          res.status(200).json(resp)
-   //       } else {
-   //          res.status(202).json({ message: `no record found` })
-   //       }
-   //    } catch (error: any) {
-   //       console.log(error)
-   //       return res.status(500).json({ message: error.message }) 
-   //    }
-   // }
-
    async fetchProgression(req: Request,res: Response) {
       try {
          const resp = await ais.activityProgress.findUnique({
@@ -2056,7 +2062,7 @@ export default class AisController {
 
 
    /* Sheets */
-   async fetchSheets(req: Request,res: Response) {
+  async fetchSheets(req: Request,res: Response) {
       const { page = 1, pageSize = 6, keyword = '' } :any = req.query;
       const offset = (page - 1) * pageSize;
       let searchCondition = {}
@@ -2114,6 +2120,79 @@ export default class AisController {
       }
   }
 
+  async fetchMySheets(req: any, res: Response) {
+      const assignStaffId = req.userId;
+      const { page = 1, pageSize = 6, keyword = '' } :any = req.query;
+      const offset = (page - 1) * pageSize;
+      let searchCondition:any = { 
+         where: {
+            //assessorId: assignStaffId,
+            assignStaffId,
+            session: { 
+               OR: [
+                  { default: true  },
+                  { assignLateSheet: true  },
+               ]
+            }, 
+         } 
+      };
+      try {
+         if(keyword) searchCondition = { 
+            where: { 
+               //assessorId: assignStaffId,
+               assignStaffId,
+               session: { 
+                  OR: [
+                    { default: true  },
+                    { assignLateSheet: true  },
+                  ]
+               },
+               OR: [
+                  { session: { title: { contains: keyword } }},
+                  { course: { title: { contains: keyword } }},
+                  { course: { id: { contains: keyword } }},
+                  { program: { longName: { contains: keyword } }},
+                  { unit: { title: { contains: keyword }, levelNum: 2 }},
+                 
+               ],
+            }
+         }
+
+         const resp = await ais.$transaction([
+            ais.sheet.count({
+               ...(searchCondition),
+            }),
+            ais.sheet.findMany({
+               ...(searchCondition && 
+               ({ ...searchCondition, 
+                  include: { 
+                     session:true,
+                     program:true,
+                     course:true,
+                     major:true,
+                     assignee:true,
+               }})),
+               skip: offset,
+               take: Number(pageSize),
+               orderBy: [{ sessionId:'desc'},{ semesterNum:'asc'}]
+            })
+         ]);
+         
+         //if(resp && resp[1]?.length){
+            res.status(200).json({
+               totalPages: Math.ceil(resp[0]/pageSize) ?? 0,
+               totalData: resp[1]?.length,
+               data: resp[1],
+            })
+      // } else {
+            //res.status(202).json({ message: `no records found` })
+         //}
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
   async stageSheet(req: Request,res: Response) {
       try {
          // Fetch Active Semester
@@ -2126,7 +2205,7 @@ export default class AisController {
             mounts = mounts.filter((meta: any) => (meta?.semesterNum % 2) == (session?.semester == 'SEM2' ? 0 : 1))
             // Check whether Sheets are generated 
             const form = await ais.sheet.findFirst({ where: { sessionId, status: true }})
-            if(form) res.status(202).json({ message: `no record found` });
+            if(form) return res.status(202).json({ message: `sheets exists for calendar` });
             
             // Upsert Bulk into Sheet 
             const resp:any = await Promise.all(mounts?.map(async (row:any) => {
@@ -2144,14 +2223,14 @@ export default class AisController {
             if(resp){
                // Update Stage Status in Calendar
                await ais.session.update({ where: { id: sessionId }, data: { stageSheet: true } })
-               res.status(200).json(resp)
+               return res.status(200).json(resp)
 
             } else {
-               res.status(202).json({ message: `no record found` })
+               return res.status(202).json({ message: `no record found` })
             }
          
          } else {
-            res.status(202).json({ message: `no record found` })
+            return res.status(202).json({ message: `no record found` })
          }
          
       } catch (error: any) {
@@ -2164,7 +2243,6 @@ export default class AisController {
       try {
          // Fetch Active Semester
          const { sheetId } = req.body;
-         console.log("SHEET ID: ", sheetId)
          // Fetch Session Info
          const sheet = await ais.sheet.findFirst({ where: { id: sheetId, status: true }, include:{ program: true, unit: true, session: true, course: true, major: true  }})
          if(sheet){
@@ -2368,7 +2446,6 @@ export default class AisController {
    }
 
 
-
    async fetchSheet(req: Request,res: Response) {
       try {
          const resp = await ais.sheet.findUnique({
@@ -2379,23 +2456,9 @@ export default class AisController {
                course:{ select: { title: true, id: true, creditHour: true }},
                major:{ select: { longName: true }},
                assignee:true,
+               assessor: true,
+               certifier: true
             }, 
-         })
-         if(resp){
-            res.status(200).json(resp)
-         } else {
-            res.status(202).json({ message: `no record found` })
-         }
-      } catch (error: any) {
-         console.log(error)
-         return res.status(500).json({ message: error.message }) 
-      }
-  }
-
-  async fetchMySheet(req: Request,res: Response) {
-      try {
-         const resp = await ais.sheet.findUnique({
-            where: { id: req.params.id },
          })
          if(resp){
             res.status(200).json(resp)
@@ -2410,7 +2473,7 @@ export default class AisController {
 
   async postSheet(req: Request,res: Response) {
       try {
-         const resp = await ais.job.create({
+         const resp = await ais.sheet.create({
             data: {
                ...req.body,
             },
@@ -2427,9 +2490,119 @@ export default class AisController {
       }
   }
 
-  async updateSheet(req: Request,res: Response) {
+  async submitSheet(req: any,res: Response) {
       try {
-         const resp = await ais.job.update({
+         const assessorId:any = req.userId;
+         const resp = await ais.sheet.update({ where: { id: req.params.id }, data: { assessed: true, assessorId } });
+         if(resp){
+            console.log(resp)
+            res.status(200).json(resp)
+         } else {
+            res.status(202).json({ message: `No records found` })
+         }
+      } catch (error: any) {
+            console.log(error)
+            return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+  async closeSheet(req: Request,res: Response) {
+      try {
+         const resp:any = await ais.sheet.findUnique({ where: { id: req.params.id }});
+         if(resp){
+            let { courseId,programId,unitId,majorId,sessionId,semesterNum,studyMode } = resp
+            // Update Student Assessment Publish Status
+            await ais.assessment.updateMany({ 
+               where: {
+                  ... sessionId && ({ sessionId }),
+                  ... courseId && ({ courseId }),
+                  ... programId && ({ student: { programId }}),
+                  ... majorId && ({ student: { majorId }}),
+                  ... studyMode && ({ student: { studyMode }}),
+                  ... semesterNum && ({ semesterNum: Number(semesterNum) }),
+                  // ... unitId && ({ unitId }),
+               }, 
+               data: { status: true } 
+            })
+            // Update Sheet
+            await ais.sheet.update({ where: { id: req.params.id }, data: { finalized: true } })
+            // Return Response
+            res.status(200).json(resp)
+         } else {
+            res.status(202).json({ message: `No records found` })
+         }
+      } catch (error: any) {
+            console.log(error)
+            return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+  async publishSheet(req: any,res: Response) {
+      try {
+         const certifierId:any = req.userId;
+         const resp:any = await ais.sheet.findUnique({ where: { id: req.params.id }});
+         if(resp){
+            let { courseId,programId,unitId,majorId,sessionId,semesterNum,studyMode } = resp
+            // Update Student Assessment Publish Status
+            await ais.assessment.updateMany({ 
+               where: {
+                  ... sessionId && ({ sessionId }),
+                  ... courseId && ({ courseId }),
+                  ... programId && ({ student: { programId }}),
+                  ... majorId && ({ student: { majorId }}),
+                  ... studyMode && ({ student: { studyMode }}),
+                  ... semesterNum && ({ semesterNum: Number(semesterNum) }),
+                  // ... unitId && ({ unitId }),
+               }, 
+               data: { status: true } 
+            })
+            // Update Sheet
+            await ais.sheet.update({ where: { id: req.params.id }, data: { certified: true, certifierId } })
+            // Return Response
+            res.status(200).json(resp)
+         } else {
+            res.status(202).json({ message: `No records found` })
+         }
+      } catch (error: any) {
+            console.log(error)
+            return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async unpublishSheet(req: Request,res: Response) {
+      try {
+         const resp:any = await ais.sheet.findUnique({ where: { id: req.params.id }});
+         if(resp){
+            let { courseId,programId,unitId,majorId,sessionId,semesterNum,studyMode } = resp
+            // Update Student Assessment Publish Status
+            await ais.assessment.updateMany({ 
+               where: {
+                  ... sessionId && ({ sessionId }),
+                  ... courseId && ({ courseId }),
+                  ... programId && ({ student: { programId }}),
+                  ... majorId && ({ student: { majorId }}),
+                  ... studyMode && ({ student: { studyMode }}),
+                  ... semesterNum && ({ semesterNum: Number(semesterNum) }),
+                  // ... unitId && ({ unitId }),
+               }, 
+               data: { status: false } 
+            })
+            // Update Sheet
+            await ais.sheet.update({ where: { id: req.params.id }, data: { certified: false, certifierId: null } })
+            // Return Response
+            res.status(200).json(resp)
+         } else {
+            res.status(202).json({ message: `No records found` })
+         }
+      } catch (error: any) {
+            console.log(error)
+            return res.status(500).json({ message: error.message }) 
+      }
+   }
+
+   async updateSheet(req: Request,res: Response) {
+      try {
+         const resp = await ais.sheet.update({
             where: { 
                id: req.params.id 
             },
@@ -2446,11 +2619,11 @@ export default class AisController {
             console.log(error)
             return res.status(500).json({ message: error.message }) 
       }
-  }
+   }
 
   async deleteSheet(req: Request,res: Response) {
       try {
-         const resp = await ais.job.delete({
+         const resp = await ais.sheet.delete({
             where: {  id: req.params.id  }
          })
          if(resp){
@@ -2463,6 +2636,292 @@ export default class AisController {
          return res.status(500).json({ message: error.message }) 
       }
   }
+
+
+
+  /* Backlog */
+  async fetchBacklogs(req: Request,res: Response) {
+   const { page = 1, pageSize = 6, keyword = '' } :any = req.query;
+   const offset = (page - 1) * pageSize;
+   let searchCondition = { }
+   try {
+      if(keyword) searchCondition = { 
+         where: { 
+            OR: [
+               { type: { contains: keyword } },
+               { session: { title: { contains: keyword } }},
+            ],
+         },
+      }
+      const resp = await ais.$transaction([
+         ais.activityBacklog.count({
+            ...(searchCondition),
+         }),
+         ais.activityBacklog.findMany({
+            ...(searchCondition),
+            skip: offset,
+            take: Number(pageSize),
+            include: { 
+               session: true
+            }
+         })
+      ]);
+      
+      if(resp && resp[1]?.length){
+         return res.status(200).json({
+            totalPages: Math.ceil(resp[0]/pageSize) ?? 0,
+            totalData: resp[1]?.length,
+            data: resp[1],
+         })
+      } else {
+         return res.status(202).json({ message: `no records found` })
+      }
+   } catch (error: any) {
+      console.log(error)
+      return res.status(500).json({ message: error.message }) 
+   }
+}
+
+async fetchBacklog(req: Request,res: Response) {
+   try {
+      const resp = await ais.activityBacklog.findUnique({
+         where: { id: req.params.id },
+         include: { session: true }
+      })
+      if(resp){
+         return res.status(200).json(resp)
+      } else {
+         return res.status(202).json({ message: `no record found` })
+      }
+   } catch (error: any) {
+      console.log(error)
+      return res.status(500).json({ message: error.message }) 
+   }
+}
+
+async approveBacklog(req: any,res: Response) {
+   try {
+      const approvedBy = req.userId;
+      const rs = await ais.activityBacklog.findUnique({
+         where: { id: req.body?.backlogId },
+      })
+
+      if(rs){
+         const { id, type, meta,sessionId,schemeId } = rs;
+         let data = [], resp; 
+
+         if(type == 'ASSESSMENT'){ // BACKLOG ASSESSMENT
+            // data = await Promise.all(meta.map(async(r:any) => {
+            //    const cs = await ais.course.findUnique({ where: { id: r.courseId }});
+            //    return ({
+            //       indexno: r.indexno,
+            //       courseId: r.courseId,
+            //       semesterNum: Number(r.semesterNum),
+            //       classScore: r.scoreClass,
+            //       examScore: r.scoreExam,
+            //       totalScore: r.scoreTotal,
+            //       type: r.scoreType,
+            //       status: true,
+            //       credit: cs?.creditHour,
+            //       sessionId,
+            //       schemeId
+            //    })
+            // }))
+            // resp = await ais.assessment.createMany({ data });
+
+            data = await Promise.all(meta.map(async(r:any) => {
+               const as = await ais.assessment.findFirst({ where: {  sessionId, courseId: r.courseId, indexno: r.indexno }});
+               const cs = await ais.course.findUnique({ where: { id: r.courseId }});
+               // Log Existing Data
+               await ais.log.create({ data: { action:`BACKLOG_${type}`, user:req.userId, student:r.indexno, meta:as }});
+               // Upsert New Data
+               return await ais.assessment.upsert({
+                  where: { 
+                     id: as?.id
+                    // sessionId,
+                     // courseId: r.courseId,
+                     // indexno: r.indexno
+                  },
+                  create:{
+                     indexno: r.indexno,
+                     courseId: r.courseId,
+                     semesterNum: Number(r.semesterNum),
+                     classScore: r.scoreClass,
+                     examScore: r.scoreExam,
+                     totalScore: r.scoreTotal,
+                     type: r.scoreType,
+                     status: true,
+                     credit: cs?.creditHour,
+                     sessionId,
+                     schemeId
+                  },
+                  update: {
+                     semesterNum: Number(r.semesterNum),
+                     classScore: r.scoreClass,
+                     examScore: r.scoreExam,
+                     totalScore: r.scoreTotal,
+                     type: r.scoreType,
+                     credit: cs?.creditHour,
+                     schemeId
+                  },
+                  
+               })
+            }))
+            resp = { count: data?.length };
+            
+
+         } else if(type == 'REGISTRATION'){ // BACKLOG REGISTRATION
+            data = await Promise.all(meta.map(async(r:any) => {
+               const cs = await ais.course.findUnique({ where: { id: r.courseId }});
+               return ({
+                  indexno: r.indexno,
+                  courseId: r.courseId,
+                  semesterNum: Number(r.semesterNum),
+                  type: r.scoreType,
+                  status: true,
+                  credit: cs?.creditHour,
+                  sessionId,
+                  schemeId
+               })
+            }))
+            resp = await ais.assessment.createMany({ data });
+
+         } else if(type == 'DELETION'){ // BACKLOG DELETION
+            data = await Promise.all(meta.map(async(r:any) => {
+               const as = await ais.assessment.findFirst({ where: { sessionId, courseId: r.courseId, indexno: r.indexno }});
+               // Log Existing Data
+               await ais.log.create({ data: { action:`BACKLOG_${type}`, user:req.userId, student:r.indexno, meta:as }});
+               // Upsert New Data
+               return ais.assessment.deleteMany({ where: { indexno: r.indexno, courseId: r.courseId, sessionId } })
+            }))
+            resp = { count: data?.length };
+         }
+         console.log(resp)
+         if(resp?.count){
+            // Update Backlog Status
+            await ais.activityBacklog.update({ where: { id }, data: { approvedBy, status: true } });
+            // Return Response
+            res.status(200).json({ success:true, data:resp })
+
+         } else {
+            res.status(202).json({ message: `no records found` })
+         }
+
+      } 
+      else throw("Invalid Backlog Id")
+   
+   } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+   }
+}
+
+async postBacklog(req: any,res: Response) {
+   try {
+      const createdBy = req.userId;
+      const { sessionId,schemeId,type,title } = req.body;
+      let meta = [];
+      const metaNum = parseInt(req.body.metaNum);
+      if(metaNum)
+        for(let i = 1; i <= metaNum; i++ ){
+           const indexno = req.body[`${i}_indexno`];
+           const courseId = req.body[`${i}_courseId`];
+           const semesterNum = req.body[`${i}_semesterNum`];
+           const scoreType = req.body[`${i}_scoreType`];
+           const scoreClass = parseFloat(req.body[`${i}_scoreClass`]);
+           const scoreExam = parseFloat(req.body[`${i}_scoreExam`]);
+           const scoreTotal = parseFloat(req.body[`${i}_scoreTotal`]);
+           if(type == 'REGISTRATION')
+             meta.push({ indexno,courseId,semesterNum,scoreType })
+           else if(type == 'ASSESSMENT')
+             meta.push({ indexno,courseId,semesterNum, scoreType, scoreClass, scoreExam, scoreTotal  })
+           else 
+             meta.push({ indexno,courseId,semesterNum })
+        }
+      
+      const resp = await ais.activityBacklog.create({
+         data: {
+            title,
+            type,
+            meta,
+            ... createdBy && ({ creator: { connect: { staffNo:createdBy }}}),
+            ... sessionId && ({ session: { connect: { id:sessionId }}}),
+            ... schemeId && ({ scheme: { connect: { id:schemeId }}}),
+         },
+      })
+      if(resp){
+         res.status(200).json({success: true, data:resp })
+      } else {
+         res.status(202).json({ message: `no records found` })
+      }
+      
+   } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+   }
+}
+
+async updateBacklog(req: any,res: Response) {
+   try {
+      const createdBy = req.userId
+      const { sessionId,schemeId,type,title } = req.body;
+      let meta = [];
+      const metaNum = parseInt(req.body.metaNum);
+      if(metaNum)
+        for(let i = 1; i <= metaNum; i++ ){
+           const indexno = req.body[`${i}_indexno`];
+           const courseId = req.body[`${i}_courseId`];
+           const semesterNum = req.body[`${i}_semesterNum`];
+           const scoreType = req.body[`${i}_scoreType`];
+           const scoreClass = parseFloat(req.body[`${i}_scoreClass`]);
+           const scoreExam = parseFloat(req.body[`${i}_scoreExam`]);
+           const scoreTotal = parseFloat(req.body[`${i}_scoreTotal`]);
+           if(type == 'REGISTRATION')
+             meta.push({ indexno,courseId,semesterNum,scoreType })
+           else if(type == 'ASSESSMENT')
+             meta.push({ indexno,courseId,semesterNum,scoreType, scoreClass, scoreExam, scoreTotal  })
+           else 
+             meta.push({ indexno,courseId,semesterNum })
+        }
+      
+      const resp = await ais.activityBacklog.update({
+         where: { id: req.params.id },
+         data: {
+            title,
+            type,
+            meta,
+            ... createdBy && ({ creator: { connect: { staffNo:createdBy }}}),
+            ... sessionId && ({ session: { connect: { id:sessionId }}}),
+            ... schemeId && ({ scheme: { connect: { id:schemeId }}}),
+         },
+      })
+      if(resp){
+         res.status(200).json(resp)
+      } else {
+         res.status(202).json({ message: `No records found` })
+      }
+   } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+   }
+}
+
+
+async deleteBacklog(req: Request,res: Response) {
+   try {
+      const resp = await ais.activityBacklog.delete({
+         where: {  id: req.params.id  }
+      })
+      if(resp){
+         res.status(200).json(resp)
+      } else {
+         res.status(202).json({ message: `No records found` })
+      }
+   } catch (error: any) {
+      console.log(error)
+      return res.status(500).json({ message: error.message }) 
+   }
+}
 
   /* App Roles */
 
@@ -2639,7 +3098,7 @@ export default class AisController {
   async checkUser(req: Request,res: Response) {
       try {
          const { userId } = req.body
-         const resp = await ais.user.findFirst({ where: { tag: userId.toString() }})
+         const resp = await ais.user.findFirst({ where: { tag: userId?.toString() }})
          res.status(200).json(!!resp)
          
       } catch (error: any) {

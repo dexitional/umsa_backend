@@ -1,8 +1,7 @@
-import { Request, Response, NextFunction } from "express";
-import { v4 as uuid } from 'uuid';
-import EvsModel from '../model/evsModel'
-import AuthModel from '../model/authModel'
-import { PrismaClient } from '../prisma/client/ums'
+import { Request, Response } from "express";
+import AuthModel from '../model/authModel';
+import EvsModel from '../model/evsModel';
+import { PrismaClient } from '../prisma/client/ums';
 import { getBillCodePrisma } from "../util/helper";
 const sha1 = require('sha1')
 const { customAlphabet } = require("nanoid");
@@ -1189,6 +1188,23 @@ export default class AmsController {
       }
    }
 
+   async fetchAwardList(req: Request,res: Response) {
+      try {
+         const resp = await ams.awardClass.findMany({
+            where: { status: true },
+            orderBy: { id: 'asc' }
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+   }
+
    async fetchStageList(req: Request,res: Response) {
       try {
          const resp = await ams.stage.findMany({
@@ -1552,6 +1568,7 @@ export default class AmsController {
          } else {
             res.status(204).json({ message: `no record found` })
          }
+         
       } catch (error: any) {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
@@ -1561,10 +1578,11 @@ export default class AmsController {
    async saveStepEmployment(req: Request,res: Response) {
       try {
          const data = req.body;
-         const resp = await ams.stepEmployment.upsert(data?.map((row:any) => {
+         await ams.stepEmployment.deleteMany({ where: { serial: req.body[0].serial }});
+         const resp = await Promise.all(data?.map(async (row:any) => {
             const { id } = row;
-            return ({
-               where: { id: (id || null) },
+            return await ams.stepEmployment.upsert({
+               where: { id: (id || '') },
                create: row,
                update: row
             })
@@ -1575,6 +1593,7 @@ export default class AmsController {
          } else {
             res.status(204).json({ message: `no record found` })
          }
+         
       } catch (error: any) {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
@@ -1700,21 +1719,15 @@ export default class AmsController {
 
    async saveStepReferee(req: Request,res: Response) {
       try {
+        
          const data = req.body;
-         const resp = await ams.stepReferee.upsert(data?.map((row:any) => {
-            const { id, titleId } = row;
-            delete row?.titleId; delete row?.id;
-            
-            return ({
-               where: { id: (id || null) },
-               create: { 
-                  ...row, 
-                  ... titleId && ({ title: { connect: { id: titleId }}}),
-               },
-               update: {
-                  ...row, 
-                  ... titleId && ({ title: { connect: { id: titleId }}}),
-               }
+         await ams.stepReferee.deleteMany({ where: { serial: req.body[0].serial }});
+         const resp = await Promise.all(data?.map(async (row:any) => {
+            const { id } = row;
+            return await ams.stepReferee.upsert({
+               where: { id: (id || '') },
+               create: row,
+               update: row
             })
          }))
          

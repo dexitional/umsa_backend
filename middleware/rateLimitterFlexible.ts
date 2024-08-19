@@ -1,6 +1,7 @@
-import { PrismaClient } from "@prisma/client";
 import { NextFunction, Request, Response } from "express";
-//const ais = new PrismaClient()
+import { PrismaClient, deferStatus, entryGroup, studyMode } from '../prisma/client/ums'
+
+const ais:any = new PrismaClient()
 const { default: axios } = require("axios");
 const db = require("../config/mysql");
 const { RateLimiterMemory, RateLimiterMySQL } = require("rate-limiter-flexible");
@@ -35,12 +36,12 @@ const voteLimiter:any = (req: Request & any, res: Response, next: NextFunction) 
       
       // Log to Rate Attacks
       axios.get(`https://geolocation-db.com/json/`).then( async ({ data }:any) => {
-        // await ais.attack.create({ data: {
-        //    tag: req?.userId,
-        //    ip: data?.IPv4,
-        //    location: `Country: ${data?.country_name}, Coordinates: [ Lat ${data?.latitude}, Long ${data?.longitude} ] ${data?.city && data?.city != 'null' && ', City: '+data?.city}`,
-        //    meta: "RATE ATTACK"
-        // }})
+        await ais.attack.create({ data: {
+           tag: req?.userId,
+           ip: data?.IPv4,
+           location: `Country: ${data?.country_name}, Coordinates: [ Lat ${data?.latitude}, Long ${data?.longitude} ] ${data?.city && data?.city != 'null' && ', City: '+data?.city}`,
+           meta: "RATE ATTACK"
+        }})
       })
       
       res.status(429).json({ message: 'Too Many Requests !' });

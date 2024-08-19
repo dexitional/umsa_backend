@@ -12,8 +12,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const evsModel_1 = __importDefault(require("../model/evsModel"));
 const authModel_1 = __importDefault(require("../model/authModel"));
+const evsModel_1 = __importDefault(require("../model/evsModel"));
 const ums_1 = require("../prisma/client/ums");
 const helper_1 = require("../util/helper");
 const sha1 = require('sha1');
@@ -1194,6 +1194,26 @@ class AmsController {
             }
         });
     }
+    fetchAwardList(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ams.awardClass.findMany({
+                    where: { status: true },
+                    orderBy: { id: 'asc' }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(204).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
     fetchStageList(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
@@ -1552,14 +1572,15 @@ class AmsController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const data = req.body;
-                const resp = yield ams.stepEmployment.upsert(data === null || data === void 0 ? void 0 : data.map((row) => {
+                yield ams.stepEmployment.deleteMany({ where: { serial: req.body[0].serial } });
+                const resp = yield Promise.all(data === null || data === void 0 ? void 0 : data.map((row) => __awaiter(this, void 0, void 0, function* () {
                     const { id } = row;
-                    return ({
-                        where: { id: (id || null) },
+                    return yield ams.stepEmployment.upsert({
+                        where: { id: (id || '') },
                         create: row,
                         update: row
                     });
-                }));
+                })));
                 if (resp) {
                     res.status(200).json(resp);
                 }
@@ -1695,16 +1716,15 @@ class AmsController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const data = req.body;
-                const resp = yield ams.stepReferee.upsert(data === null || data === void 0 ? void 0 : data.map((row) => {
-                    const { id, titleId } = row;
-                    row === null || row === void 0 ? true : delete row.titleId;
-                    row === null || row === void 0 ? true : delete row.id;
-                    return ({
-                        where: { id: (id || null) },
-                        create: Object.assign(Object.assign({}, row), titleId && ({ title: { connect: { id: titleId } } })),
-                        update: Object.assign(Object.assign({}, row), titleId && ({ title: { connect: { id: titleId } } }))
+                yield ams.stepReferee.deleteMany({ where: { serial: req.body[0].serial } });
+                const resp = yield Promise.all(data === null || data === void 0 ? void 0 : data.map((row) => __awaiter(this, void 0, void 0, function* () {
+                    const { id } = row;
+                    return yield ams.stepReferee.upsert({
+                        where: { id: (id || '') },
+                        create: row,
+                        update: row
                     });
-                }));
+                })));
                 if (resp) {
                     res.status(200).json(resp);
                 }

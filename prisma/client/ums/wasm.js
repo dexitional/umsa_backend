@@ -119,6 +119,15 @@ exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
   Serializable: 'Serializable'
 });
 
+exports.Prisma.LogScalarFieldEnum = {
+  id: 'id',
+  action: 'action',
+  user: 'user',
+  student: 'student',
+  meta: 'meta',
+  createdAt: 'createdAt'
+};
+
 exports.Prisma.CountryScalarFieldEnum = {
   id: 'id',
   code: 'code',
@@ -410,6 +419,20 @@ exports.Prisma.ActivityDeferScalarFieldEnum = {
   statusBy: 'statusBy',
   start: 'start',
   end: 'end',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ActivityBacklogScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  schemeId: 'schemeId',
+  title: 'title',
+  type: 'type',
+  meta: 'meta',
+  status: 'status',
+  approvedBy: 'approvedBy',
+  createdBy: 'createdBy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -750,6 +773,14 @@ exports.Prisma.GradeWeightScalarFieldEnum = {
   certCategoryId: 'certCategoryId',
   title: 'title',
   weight: 'weight',
+  status: 'status',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AwardClassScalarFieldEnum = {
+  id: 'id',
+  title: 'title',
   status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -1360,15 +1391,15 @@ exports.Prisma.NullableJsonNullValueInput = {
   JsonNull: Prisma.JsonNull
 };
 
-exports.Prisma.NullsOrder = {
-  first: 'first',
-  last: 'last'
-};
-
 exports.Prisma.JsonNullValueFilter = {
   DbNull: Prisma.DbNull,
   JsonNull: Prisma.JsonNull,
   AnyNull: Prisma.AnyNull
+};
+
+exports.Prisma.NullsOrder = {
+  first: 'first',
+  last: 'last'
 };
 exports.unitType = exports.$Enums.unitType = {
   ACADEMIC: 'ACADEMIC',
@@ -1428,6 +1459,12 @@ exports.deferStatus = exports.$Enums.deferStatus = {
   PENDED: 'PENDED',
   APPROVED: 'APPROVED',
   DECLINED: 'DECLINED'
+};
+
+exports.backlogType = exports.$Enums.backlogType = {
+  REGISTRATION: 'REGISTRATION',
+  ASSESSMENT: 'ASSESSMENT',
+  DELETION: 'DELETION'
 };
 
 exports.scoreType = exports.$Enums.scoreType = {
@@ -1564,6 +1601,7 @@ exports.scaleLevel = exports.$Enums.scaleLevel = {
 };
 
 exports.Prisma.ModelName = {
+  log: 'log',
   country: 'country',
   region: 'region',
   title: 'title',
@@ -1585,6 +1623,7 @@ exports.Prisma.ModelName = {
   activityProgress: 'activityProgress',
   activityProgchange: 'activityProgchange',
   activityDefer: 'activityDefer',
+  activityBacklog: 'activityBacklog',
   assessment: 'assessment',
   informer: 'informer',
   letter: 'letter',
@@ -1611,6 +1650,7 @@ exports.Prisma.ModelName = {
   certCategory: 'certCategory',
   instituteCategory: 'instituteCategory',
   gradeWeight: 'gradeWeight',
+  awardClass: 'awardClass',
   documentCategory: 'documentCategory',
   subject: 'subject',
   amsPrice: 'amsPrice',

@@ -9,7 +9,8 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-//const ais = new PrismaClient()
+const ums_1 = require("../prisma/client/ums");
+const ais = new ums_1.PrismaClient();
 const { default: axios } = require("axios");
 const db = require("../config/mysql");
 const { RateLimiterMemory, RateLimiterMySQL } = require("rate-limiter-flexible");
@@ -40,12 +41,12 @@ const voteLimiter = (req, res, next) => {
         .catch(() => __awaiter(void 0, void 0, void 0, function* () {
         // Log to Rate Attacks
         axios.get(`https://geolocation-db.com/json/`).then(({ data }) => __awaiter(void 0, void 0, void 0, function* () {
-            // await ais.attack.create({ data: {
-            //    tag: req?.userId,
-            //    ip: data?.IPv4,
-            //    location: `Country: ${data?.country_name}, Coordinates: [ Lat ${data?.latitude}, Long ${data?.longitude} ] ${data?.city && data?.city != 'null' && ', City: '+data?.city}`,
-            //    meta: "RATE ATTACK"
-            // }})
+            yield ais.attack.create({ data: {
+                    tag: req === null || req === void 0 ? void 0 : req.userId,
+                    ip: data === null || data === void 0 ? void 0 : data.IPv4,
+                    location: `Country: ${data === null || data === void 0 ? void 0 : data.country_name}, Coordinates: [ Lat ${data === null || data === void 0 ? void 0 : data.latitude}, Long ${data === null || data === void 0 ? void 0 : data.longitude} ] ${(data === null || data === void 0 ? void 0 : data.city) && (data === null || data === void 0 ? void 0 : data.city) != 'null' && ', City: ' + (data === null || data === void 0 ? void 0 : data.city)}`,
+                    meta: "RATE ATTACK"
+                } });
         }));
         res.status(429).json({ message: 'Too Many Requests !' });
     }));

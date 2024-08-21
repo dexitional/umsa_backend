@@ -1006,6 +1006,7 @@ class FmsController {
                     if (!tr) {
                         const narrative = `Payment of ${serviceId == 8 ? 'Graduation' : serviceId == 3 ? 'Resit' : serviceId == 8 ? 'Late Registration' : 'Academic'} Fees`;
                         data = Object.assign(Object.assign({}, data), { studentId: st === null || st === void 0 ? void 0 : st.id });
+                        studentId = st === null || st === void 0 ? void 0 : st.id;
                         console.log(data);
                         const ins = yield fms.transaction.create({
                             data: Object.assign(Object.assign({}, data), serviceId && [2, 3, 4, 8].includes(serviceId) && ({ studentAccount: { createMany: { data: { studentId, narrative, currency, amount: (-1 * amountPaid), type: 'PAYMENT' } } } }))
@@ -1033,7 +1034,7 @@ class FmsController {
                         }
                     }
                     else {
-                        return res.status(200).json({ success: true, data: { transId: tr === null || tr === void 0 ? void 0 : tr.id, studentId, serviceId } });
+                        return res.status(200).json({ success: true, data: { transId: tr === null || tr === void 0 ? void 0 : tr.id, studentId: st === null || st === void 0 ? void 0 : st.id, serviceId } });
                     }
                 }
             }

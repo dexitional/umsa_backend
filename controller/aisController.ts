@@ -277,8 +277,9 @@ export default class AisController {
 
      async fetchStudentTranscript(req: Request,res: Response) {
          try {
+            const st:any = await ais.student.findFirst({ where: { OR: [ { id: req.params.id }, { indexno: req.params.id } ] } });
             const resp = await ais.assessment.findMany({
-               where: { indexno: req.params.id },
+               where: { indexno: st?.indexno },
                include: { 
                   student: { select: { fname: true, mname: true, id: true, program: { select: { longName: true } } } },
                   scheme: { select: { gradeMeta: true, } },

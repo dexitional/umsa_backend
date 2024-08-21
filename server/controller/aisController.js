@@ -295,8 +295,9 @@ class AisController {
         var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                const st = yield ais.student.findFirst({ where: { OR: [{ id: req.params.id }, { indexno: req.params.id }] } });
                 const resp = yield ais.assessment.findMany({
-                    where: { indexno: req.params.id },
+                    where: { indexno: st === null || st === void 0 ? void 0 : st.indexno },
                     include: {
                         student: { select: { fname: true, mname: true, id: true, program: { select: { longName: true } } } },
                         scheme: { select: { gradeMeta: true, } },

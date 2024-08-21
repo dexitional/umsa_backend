@@ -12,8 +12,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const evsModel_1 = __importDefault(require("../model/evsModel"));
 const authModel_1 = __importDefault(require("../model/authModel"));
+const evsModel_1 = __importDefault(require("../model/evsModel"));
 const ums_1 = require("../prisma/client/ums");
 const helper_1 = require("../util/helper");
 const sms = require('../config/sms');
@@ -937,7 +937,7 @@ class FmsController {
                 serviceId = Number(serviceId);
                 amountPaid = parseFloat(amountPaid);
                 const tr = yield fms.transaction.findFirst({ where: { transtag: transRef } });
-                const data = {
+                let data = {
                     collectorId: cl.id,
                     transtypeId: serviceId,
                     currency,
@@ -1005,6 +1005,7 @@ class FmsController {
                     const st = yield fms.student.findFirst({ where: { OR: [{ id: studentId }, { indexno: studentId }] } });
                     if (!tr) {
                         const narrative = `Payment of ${serviceId == 8 ? 'Graduation' : serviceId == 3 ? 'Resit' : serviceId == 8 ? 'Late Registration' : 'Academic'} Fees`;
+                        data = Object.assign(Object.assign({}, data), { studentId: st === null || st === void 0 ? void 0 : st.id });
                         const ins = yield fms.transaction.create({
                             data: Object.assign(Object.assign({}, data), serviceId && [2, 3, 4, 8].includes(serviceId) && ({ studentAccount: { createMany: { data: { studentId, narrative, currency, amount: (-1 * amountPaid), type: 'PAYMENT' } } } }))
                         });

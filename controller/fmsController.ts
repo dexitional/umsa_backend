@@ -1,8 +1,7 @@
-import { Request, Response, NextFunction } from "express";
-import { v4 as uuid } from 'uuid';
-import EvsModel from '../model/evsModel'
-import AuthModel from '../model/authModel'
-import { PrismaClient } from '../prisma/client/ums'
+import { Request, Response } from "express";
+import AuthModel from '../model/authModel';
+import EvsModel from '../model/evsModel';
+import { PrismaClient } from '../prisma/client/ums';
 import { getSemesterFromCode } from "../util/helper";
 
 const sms = require('../config/sms');
@@ -920,7 +919,7 @@ export default class FmsController {
             amountPaid = parseFloat(amountPaid)
          const tr = await fms.transaction.findFirst({ where: { transtag: transRef }})
            
-         const data:any = {
+         let data:any = {
            collectorId: cl.id,
            transtypeId: serviceId,
            currency,
@@ -991,6 +990,7 @@ export default class FmsController {
             const st:any = await fms.student.findFirst({ where: { OR: [ { id: studentId }, { indexno: studentId } ] } });
             if(!tr){
                const narrative = `Payment of ${serviceId == 8 ? 'Graduation' : serviceId == 3 ? 'Resit' : serviceId == 8 ? 'Late Registration' : 'Academic' } Fees`
+               data = { ...data, studentId: st?.id }
                const ins = await fms.transaction.create({ 
                   data: {
                      ... data,

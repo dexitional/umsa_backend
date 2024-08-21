@@ -209,14 +209,15 @@ class AuthController {
                 const { oldpassword, newpassword, tag } = req.body;
                 const isUser = yield sso.user.findFirst({
                     where: {
-                        username: tag,
+                        tag: tag,
                         password: sha1(oldpassword),
                     }
                 });
+                console.log(isUser, req.body);
                 if (isUser) {
                     const ups = yield sso.user.updateMany({
                         where: { tag },
-                        data: { password: sha1(newpassword), unlockPin: newpassword }
+                        data: { password: sha1(newpassword) }
                     });
                     res.status(200).json(ups);
                 }

@@ -1059,16 +1059,23 @@ export default class AisController {
          const courses:any = [];
          const id = req.params.indexno;
          // Get Student Info
-         const student:any = await ais.student.findUnique({ include:{ program: { select: { schemeId: true, hasMajor: true, }}}, where : { id }})
+         const student:any = await ais.student.findUnique({ include:{ program: { select: { schemeId: true, hasMajor: true }}}, where : { id }})
          const indexno = student?.indexno;
          // Get Active Sessions Info
          const sessions:any = await ais.session.findMany({ where : { default: true }})
-         // Get Session, If Student is Main(Sept)/Sub(Jan) for AUCC Only
-         const session:any = sessions.find((row: any) => (moment(student?.entryDate).format("MM") == '01' && student?.entrySemesterNum <= 2) ? row.tag == 'sub': row.tag == 'main')
+         
+         // Get Session, for AUCC Only
+         const session:any = sessions.find((row: any) => (moment(student?.entryDate).format("MM") == '01' && student?.entrySemesterNum <= 2) ? row?.tag?.toUpperCase() == 'SUB': row?.tag?.toUpperCase() == 'MAIN')
+         // Get Session, for MLK Only
+         // const session:any = sessions[0];
+         
          // Get Normal Courses with/without Majors
          const maincourses = await ais.structure.findMany({
             include: { course: { select: { title: true, creditHour: true }}},
-            where: {  programId: student?.programId, semesterNum: student?.semesterNum },
+            where: {  
+                semesterNum: student?.semesterNum, 
+                programId: student?.programId, 
+            },
             orderBy: { type:'asc'}
          })
          // Meta & Instructions
@@ -1087,40 +1094,44 @@ export default class AisController {
          // const meta:any = []
          if(student && maincourses.length){
             for(const course of maincourses){
-               courses.push({
-                  code: course.courseId,
-                  course: course?.course?.title,
-                  credit: course?.course?.creditHour,
-                  type: course?.type,
-                  lock: course?.lock,
-                  sessionId: session?.id,
-                  schemeId: student?.program?.schemeId,
-                  semesterNum: student?.semesterNum,
-                  indexno
-               })
+               const isAdded = courses.find((c:any) => c.code == course.courseId);
+               if(!isAdded)
+                  courses.push({
+                     code: course.courseId,
+                     course: course?.course?.title,
+                     credit: course?.course?.creditHour,
+                     type: course?.type,
+                     lock: course?.lock,
+                     sessionId: session?.id,
+                     schemeId: student?.program?.schemeId,
+                     semesterNum: student?.semesterNum,
+                     indexno
+                  })
             }
          }
          // Get Resit Courses
          const resitcourses:any = await ais.resit.findMany({ 
             include: { course: { select: { title: true, creditHour: true }}},
-            where : { indexno, taken: false,trailSession: { semester: session.semesterNum },
+            where : { indexno, taken: false, trailSession: { semester: session?.semesterNum },
          }})
          if(student && resitcourses.length){
             for(const course of resitcourses){
-               courses.push({
-                  code: course.courseId,
-                  course: course?.course?.title,
-                  credit: course?.course?.creditHour,
-                  type: 'R',
-                  lock: false,
-                  sessionId: session.id,
-                  schemeId: student?.program?.schemeId,
-                  semesterNum: student.semesterNum,
-                  indexno
-               })
+               const isAdded = courses.find((c:any) => c.code == course.courseId);
+               if(!isAdded)
+                  courses.push({
+                     code: course.courseId,
+                     course: course?.course?.title,
+                     credit: course?.course?.creditHour,
+                     type: 'R',
+                     lock: false,
+                     sessionId: session.id,
+                     schemeId: student?.program?.schemeId,
+                     semesterNum: student.semesterNum,
+                     indexno
+                  })
             }
          }
-
+         
          // Conditions
          let condition = true; // Allow Registration
          let message;          // Reason attached
@@ -1128,7 +1139,6 @@ export default class AisController {
             // Check for Exceeded Credit Hours - After
             // If No courses are not selected! - After
             // Check whether Total Number of Electives are chosen - After
-            
             
             // If student Doesnt Have an Index Number - Before
                if(!student?.indexno) { condition = false; message = "No Index Number for Student!" }
@@ -1140,11 +1150,28 @@ export default class AisController {
             // If Registration Period is Inactive - Before
             // If Registration Period is Active and Halt status is ON - Before
             // If Registration Period is Extended for Late Finers - Before
-            
-         
          */
 
-         if(courses.length){
+         
+            // Check for Exceeded Credit Hours - After
+            // If No courses are not selected! - After
+            // Check whether Total Number of Electives are chosen - After
+            
+            // If student Doesnt Have an Index Number - Before
+               if(!student?.indexno) { condition = false; message = "No Index Number for Student!" }
+            // If Semester Level or Program ID or Major  ID is not Updated, Block Registration - Before
+               if(!student?.programId || (student.program.hasMajor && !student.majorId) || !student?.semesterNum) { condition = false; message = "No Major or Program or Level Set!" }
+            
+               // If Student is Owing Fees, Lock Registration - Before
+            // if(student?.accountNet > 0 && student?.accountNet < (Bill amount * Payment Percentage )) { condition = false; message = "No Index Number for Student!" }
+            
+            // If Student is Pardoned by Finance, Allow Registration - Before
+            // If Registration Period is Inactive - Before
+            // If Registration Period is Active and Halt status is ON - Before
+            // If Registration Period is Extended for Late Finers - Before
+        
+
+         if(courses?.length){
             res.status(200).json({ session: session?.title, courses, meta, condition, message })
          } else {
             res.status(202).json({ message: `no record found` })
@@ -1207,6 +1234,7 @@ export default class AisController {
          }})
          // Save Registration Courses
          const mainresp = await ais.assessment.createMany({ data })
+         console.log(mainresp);
          if(mainresp){
            res.status(200).json({ courses: mainresp, resits: rdata, totalCourses: courses.length })
          } else {
@@ -3118,6 +3146,7 @@ async deleteBacklog(req: Request,res: Response) {
          if(keyword) searchCondition = { 
             where: { 
              OR: [
+                { staffNo: { contains: keyword } },
                 { fname: { contains: keyword } },
                 { lname: { contains: keyword } },
                 { phone: { contains: keyword } },

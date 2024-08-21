@@ -930,12 +930,12 @@ class FmsController {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                console.log(req.body);
+                console.log("From Bank: ", req.body);
                 const api = req.query.api;
                 const cl = yield fms.vendor.findFirst();
                 let { serviceId, amountPaid, currency, studentId, refNote, transRef, buyerName, buyerPhone, formId, sessionId } = req.body;
                 serviceId = Number(serviceId);
-                amountPaid = parseFloat(amountPaid);
+                amountPaid = parseFloat(amountPaid.replace(",", ""));
                 const tr = yield fms.transaction.findFirst({ where: { transtag: transRef } });
                 let data = {
                     collectorId: cl.id,
@@ -1006,6 +1006,7 @@ class FmsController {
                     if (!tr) {
                         const narrative = `Payment of ${serviceId == 8 ? 'Graduation' : serviceId == 3 ? 'Resit' : serviceId == 8 ? 'Late Registration' : 'Academic'} Fees`;
                         data = Object.assign(Object.assign({}, data), { studentId: st === null || st === void 0 ? void 0 : st.id });
+                        console.log(data);
                         const ins = yield fms.transaction.create({
                             data: Object.assign(Object.assign({}, data), serviceId && [2, 3, 4, 8].includes(serviceId) && ({ studentAccount: { createMany: { data: { studentId, narrative, currency, amount: (-1 * amountPaid), type: 'PAYMENT' } } } }))
                         });

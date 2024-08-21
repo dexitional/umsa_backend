@@ -911,12 +911,12 @@ export default class FmsController {
    async payService(req: Request,res: Response) {
       try {
         
-         console.log(req.body)
+         console.log("From Bank: ", req.body)
          const api = req.query.api;
          const cl:any = await fms.vendor.findFirst();
          let { serviceId, amountPaid, currency, studentId, refNote, transRef, buyerName, buyerPhone, formId, sessionId } = req.body;
             serviceId = Number(serviceId)
-            amountPaid = parseFloat(amountPaid)
+            amountPaid = parseFloat(amountPaid.replace(",",""))
          const tr = await fms.transaction.findFirst({ where: { transtag: transRef }})
            
          let data:any = {
@@ -991,6 +991,7 @@ export default class FmsController {
             if(!tr){
                const narrative = `Payment of ${serviceId == 8 ? 'Graduation' : serviceId == 3 ? 'Resit' : serviceId == 8 ? 'Late Registration' : 'Academic' } Fees`
                data = { ...data, studentId: st?.id }
+               console.log(data)
                const ins = await fms.transaction.create({ 
                   data: {
                      ... data,

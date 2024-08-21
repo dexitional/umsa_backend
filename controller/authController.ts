@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import AuthModel from '../model/authModel'
-import { PrismaClient } from '../prisma/client/ums'
-import { decodeBase64Image, rotateImage } from "../util/helper";
+import AuthModel from '../model/authModel';
+import { PrismaClient } from '../prisma/client/ums';
+import { rotateImage } from "../util/helper";
 const sso = new PrismaClient()
 //import { customAlphabet } from 'nanoid'
 
@@ -77,7 +77,7 @@ export default class AuthController {
                
                 console.log(userdata)
                 // Generate Session Token & 
-                const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60});
+                const token = jwt.sign(userdata || {}, process.env.SECRET);
                 // Send Response to Client
                 return res.status(200).json({ success: true, data: userdata, token });
             
@@ -97,7 +97,7 @@ export default class AuthController {
                   photo
                 }
                 // Generate Session Token & 
-                const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60});
+                const token = jwt.sign(userdata || {}, process.env.SECRET);
                 // Send Response to Client
                 return res.status(200).json({ success: true, data: userdata, token });
             
@@ -134,7 +134,7 @@ export default class AuthController {
                        photo
                     }
                     // Generate Session Token & 
-                    const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60});
+                    const token = jwt.sign(userdata || {}, process.env.SECRET);
                     // Send Response to Client
                     res.status(200).json({ success: true, data: userdata, token });
 

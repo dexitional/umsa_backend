@@ -839,6 +839,7 @@ class AmsController {
             try {
                 const { serial } = req.body;
                 const sorted = yield ams.sortedApplicant.findFirst({ where: { serial } });
+                console.log(serial, sorted);
                 if (sorted)
                     throw ("Applicant already shortlisted!");
                 const voucher = yield ams.voucher.findFirst({ where: { serial } });
@@ -1678,8 +1679,10 @@ class AmsController {
                         update: Object.assign(Object.assign(Object.assign({}, row), programId && ({ program: { connect: { id: programId } } })), majorId && ({ major: { connect: { id: majorId } } }))
                     });
                 })));
-                console.log(resp);
                 if (resp) {
+                    // Update Applicant First Choice
+                    //const ch = await ams.stepChoice.findFirst({ where: { serial }})
+                    yield ams.applicant.update({ where: { serial: req.body[0].serial }, data: { choiceId: resp[0].id } });
                     res.status(200).json(resp);
                 }
                 else {
@@ -1718,11 +1721,12 @@ class AmsController {
                 const data = req.body;
                 yield ams.stepReferee.deleteMany({ where: { serial: req.body[0].serial } });
                 const resp = yield Promise.all(data === null || data === void 0 ? void 0 : data.map((row) => __awaiter(this, void 0, void 0, function* () {
-                    const { id } = row;
+                    const { id, titleId } = row;
+                    row === null || row === void 0 ? true : delete row.titleId;
                     return yield ams.stepReferee.upsert({
                         where: { id: (id || '') },
-                        create: row,
-                        update: row
+                        create: Object.assign(Object.assign({}, row), titleId && ({ title: { connect: { id: titleId } } })),
+                        update: Object.assign(Object.assign({}, row), titleId && ({ title: { connect: { id: titleId } } })),
                     });
                 })));
                 if (resp) {

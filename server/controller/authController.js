@@ -91,7 +91,7 @@ class AuthController {
                         ];
                     console.log(userdata);
                     // Generate Session Token & 
-                    const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60 });
+                    const token = jwt.sign(userdata || {}, process.env.SECRET);
                     // Send Response to Client
                     return res.status(200).json({ success: true, data: userdata, token });
                 }
@@ -112,7 +112,7 @@ class AuthController {
                         photo
                     };
                     // Generate Session Token & 
-                    const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60 });
+                    const token = jwt.sign(userdata || {}, process.env.SECRET);
                     // Send Response to Client
                     return res.status(200).json({ success: true, data: userdata, token });
                 }
@@ -150,7 +150,7 @@ class AuthController {
                             photo
                         };
                         // Generate Session Token & 
-                        const token = jwt.sign(userdata || {}, process.env.SECRET, { expiresIn: 60 * 60 });
+                        const token = jwt.sign(userdata || {}, process.env.SECRET);
                         // Send Response to Client
                         res.status(200).json({ success: true, data: userdata, token });
                     }

@@ -811,6 +811,8 @@ export default class AmsController {
       try {
          const { serial } = req.body
          const sorted:any = await ams.sortedApplicant.findFirst({ where:{ serial }})
+         console.log(serial,sorted);
+         
          if(sorted) throw("Applicant already shortlisted!")
 
          const voucher:any = await ams.voucher.findFirst({ where:{ serial }})
@@ -1688,8 +1690,11 @@ export default class AmsController {
                }
             })
          }))
-         console.log(resp)
          if(resp){
+            // Update Applicant First Choice
+             //const ch = await ams.stepChoice.findFirst({ where: { serial }})
+             await ams.applicant.update({ where: { serial:req.body[0].serial }, data: { choiceId: resp[0].id } })
+
             res.status(200).json(resp)
          } else {
             res.status(204).json({ message: `no record found` })
@@ -1723,11 +1728,18 @@ export default class AmsController {
          const data = req.body;
          await ams.stepReferee.deleteMany({ where: { serial: req.body[0].serial }});
          const resp = await Promise.all(data?.map(async (row:any) => {
-            const { id } = row;
+            const { id,titleId } = row;
+            delete row?.titleId;
             return await ams.stepReferee.upsert({
                where: { id: (id || '') },
-               create: row,
-               update: row
+               create: { 
+                  ...row, 
+                  ... titleId && ({ title: { connect: { id: titleId }}}),
+               },
+               update: { 
+                  ...row, 
+                  ... titleId && ({ title: { connect: { id: titleId }}}),
+               },
             })
          }))
          

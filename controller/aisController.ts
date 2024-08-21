@@ -278,18 +278,18 @@ export default class AisController {
      async fetchStudentTranscript(req: Request,res: Response) {
          try {
             const st:any = await ais.student.findFirst({ where: { OR: [ { id: req.params.id }, { indexno: req.params.id } ] } });
+            
             const resp = await ais.assessment.findMany({
                where: { indexno: st?.indexno },
                include: { 
-                  student: { select: { fname: true, mname: true, id: true, program: { select: { longName: true } } } },
+                  //student: true,
+                  //student: { select: { fname: true, mname: true, id: true, program: { select: { longName: true } } } },
                   scheme: { select: { gradeMeta: true, } },
                   session: { select: { title: true, } },
                   course:{ select:{ title:true } },
                }, 
-               orderBy: [{ session: { createdAt: 'asc' }}, {courseId:'asc'}]
-            })
+            });
             
-           
             if(resp){ 
                var mdata:any = new Map();
                for(const sv of resp){

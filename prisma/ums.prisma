@@ -752,6 +752,7 @@ model assessment {
   course  course  @relation(fields: [courseId], references: [id])
   student student @relation(fields: [indexno], references: [indexno])
 
+  @@unique([sessionId, courseId, indexno])
   @@index([sessionId, courseId, indexno])
   @@index([sessionId, courseId, semesterNum])
   @@map("ais_assessment")

@@ -1021,7 +1021,7 @@ export default class FmsController {
                   return res.status(200).json({ success: false, data: null, msg: `Transaction failed` });
                }
             } else {
-               return res.status(200).json({success: true, data: { transId: tr?.id, studentId, serviceId } });
+               return res.status(200).json({success: true, data: { transId: tr?.id, studentId: st?.id, serviceId } });
             }
          }
          

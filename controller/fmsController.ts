@@ -991,6 +991,7 @@ export default class FmsController {
             if(!tr){
                const narrative = `Payment of ${serviceId == 8 ? 'Graduation' : serviceId == 3 ? 'Resit' : serviceId == 8 ? 'Late Registration' : 'Academic' } Fees`
                data = { ...data, studentId: st?.id }
+               studentId = st?.id;
                console.log(data)
                const ins = await fms.transaction.create({ 
                   data: {

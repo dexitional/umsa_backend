@@ -496,7 +496,7 @@ export default class AuthController {
         let mtag:any = req?.query?.tag;
             mtag = mtag.trim().toLowerCase();
         const tag = mtag.replaceAll("/", "").replaceAll("_", "");
-        if(fs.statSync(path.join(__dirname, "/../../public/cdn/photo/staff/",`${tag}.jpg`))) return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/photo/staff/",`${tag}.jpg`));
+        if(fs.existsSync(path.join(__dirname, "/../../public/cdn/photo/staff/",`${tag}.jpg`))) return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/photo/staff/",`${tag}.jpg`));
         else if(fs.existsSync(path.join(__dirname, "/../../public/cdn/photo/staff/",`${tag}.jpeg`))) return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/photo/staff/",`${tag}.jpg`));
         else if(fs.existsSync(path.join(__dirname, "/../../public/cdn/photo/student/",`${tag}.jpg`)))  return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/photo/student/",`${tag}.jpg`));
         else if(fs.existsSync(path.join(__dirname, "/../../public/cdn/photo/student/",`${tag}.jpeg`)))  return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/photo/student/",`${tag}.jpg`));

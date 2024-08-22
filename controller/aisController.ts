@@ -13,6 +13,7 @@ const Auth = new AuthModel();
 const sha1 = require('sha1');
 const { customAlphabet } = require("nanoid");
 const pwdgen = customAlphabet("1234567890abcdefghijklmnopqrstuvwzyx", 6);
+const sms = require('../config/sms');
 
 
 
@@ -381,7 +382,8 @@ export default class AisController {
         const password = pwdgen();
         const isUser = await ais.user.findFirst({ where: { tag: studentId }})
         if(isUser) throw("Student Portal Account Exists!")
-        const ssoData = { tag:studentId, username:studentId, password:sha1(password), unlockPin: password }  // Others
+        const ssoData = { tag:studentId, username:studentId, password:sha1(password), unlockPin: password }  // AUCC only
+      //   const ssoData = { tag:studentId, username:studentId, password:sha1(password), unlockPin: password }  // MLK & Others
          // Populate SSO Account
          const resp = await ais.user.create({
             data: {
@@ -401,17 +403,23 @@ export default class AisController {
        }
      }
 
+     
+
      async resetStudent(req: Request,res: Response) {
       try {
         const { studentId } = req.body;
-        console.log(studentId)
         const password = pwdgen();
         const resp = await ais.user.updateMany({
             where: { tag: studentId },
-            data: { password: sha1(password), unlockPin: password },
+            // data: { password: sha1(password), unlockPin: password },
+            data: { password: sha1(password) },
+            include:true
         })
-        console.log(resp)
         if(resp?.count){
+           // Send Password By SMS
+           const st = await ais.student.findFirst({ where: { id: studentId }});
+           if(st?.phone) await sms(st?.phone,`Hi! Your new credentials is username: ${st?.instituteEmail}, password: ${password}`)
+           // Return Password
            res.status(200).json({ password })
         } else {
            res.status(202).json({ message: `no records found` })
@@ -468,6 +476,39 @@ export default class AisController {
           return res.status(500).json(error) 
       }
      }
+
+     async generateEmail(req: Request,res: Response) {
+      try {
+            let count = 1;
+            let isNew = true;
+            const { studentId } = req.body;
+            const st = await ais.student.findFirst({ where: { id: studentId }});
+            
+            if(st?.instituteEmail) throw("mail already exists !");
+            let username = `${st?.fname}${st?.lname}`.toLowerCase();
+
+            while(isNew){
+               const ck =  await ais.student.findFirst({ where: { instituteEmail: { startsWith: `${username}${count > 1 ? count:''}` } }});
+               if(ck) count = count+1;
+               else return
+            }
+            // Update Student Email
+            const institutEmail =  `${username}@${process.env.UMS_MAIL}`;
+            const resp = await ais.student.update({ where: {  id: studentId }, data: { institutEmail } });
+            
+            if(resp){
+               // Return 
+               res.status(200).json(resp)
+            } else {
+               res.status(202).json({ message: `no records found` })
+            }
+        
+       } catch (error: any) {
+          console.log(error)
+          return res.status(500).json(error) 
+       }
+     }
+
 
     
 

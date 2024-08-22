@@ -295,7 +295,21 @@ class AisController {
         var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const st = yield ais.student.findFirst({ where: { OR: [{ id: req.params.id }, { indexno: req.params.id }] } });
+                const st = yield ais.student.findFirst({
+                    where: {
+                        OR: [
+                            {
+                                AND: [
+                                    { indexno: { not: null } },
+                                    { id: req.params.id }
+                                ]
+                            },
+                            { indexno: req.params.id }
+                        ]
+                    }
+                });
+                if (!st)
+                    throw ("No index number generated");
                 const resp = yield ais.assessment.findMany({
                     where: { indexno: st === null || st === void 0 ? void 0 : st.indexno },
                     include: {
@@ -2174,7 +2188,11 @@ class AisController {
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 6, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
-            let searchCondition = {};
+            let searchCondition = {
+                where: {
+                    session: { OR: [{ default: true }, { assignLateSheet: true }] }
+                }
+            };
             try {
                 if (keyword)
                     searchCondition = {
@@ -2186,6 +2204,7 @@ class AisController {
                                 ]
                             },
                             OR: [
+                                { courseId: { contains: keyword } },
                                 { session: { title: { contains: keyword } } },
                                 { course: { title: { contains: keyword } } },
                                 { course: { id: { contains: keyword } } },
@@ -2300,8 +2319,12 @@ class AisController {
                     mounts = mounts.filter((meta) => ((meta === null || meta === void 0 ? void 0 : meta.semesterNum) % 2) == ((session === null || session === void 0 ? void 0 : session.semester) == 'SEM2' ? 0 : 1));
                     // Check whether Sheets are generated 
                     const form = yield ais.sheet.findFirst({ where: { sessionId, status: true } });
-                    if (form)
+                    if (form) {
+                        // Update Generated Flag
+                        yield ais.session.update({ where: { id: sessionId }, data: { stageSheet: true } });
+                        // Return Response
                         return res.status(202).json({ message: `sheets exists for calendar` });
+                    }
                     // Upsert Bulk into Sheet 
                     const resp = yield Promise.all(mounts === null || mounts === void 0 ? void 0 : mounts.map((row) => __awaiter(this, void 0, void 0, function* () {
                         let { courseId, programId, unitId, majorId } = row;
@@ -2334,11 +2357,11 @@ class AisController {
                 const { sheetId } = req.body;
                 // Fetch Session Info
                 const sheet = yield ais.sheet.findFirst({ where: { id: sheetId, status: true }, include: { program: true, unit: true, session: true, course: true, major: true } });
+                //console.log(sheet)
                 if (sheet) {
                     // Fetch Mounted Courses all Program Levels
                     let mounts = yield ais.assessment.findMany({
                         where: {
-                            status: true,
                             semesterNum: sheet.semesterNum,
                             sessionId: sheet === null || sheet === void 0 ? void 0 : sheet.sessionId,
                             courseId: sheet === null || sheet === void 0 ? void 0 : sheet.courseId,
@@ -2347,7 +2370,14 @@ class AisController {
                         include: { student: true, scheme: true },
                         orderBy: [{ student: { fname: 'asc' } },]
                     });
-                    mounts = mounts.filter((st, i) => sheet.majorId == st.student.majorId && sheet.studyMode == st.student.studyMode);
+                    mounts = mounts === null || mounts === void 0 ? void 0 : mounts.filter((st, i) => {
+                        var _a, _b, _c, _d;
+                        // if(st?.student?.semesterNum < 5) return sheet?.programId == st?.student?.programId && sheet?.studyMode == st?.student?.studyMode;
+                        // return sheet?.programId == st?.student?.programId && sheet?.majorId == st?.student?.majorId && sheet?.studyMode == st?.student?.studyMode;
+                        if (((_a = st === null || st === void 0 ? void 0 : st.student) === null || _a === void 0 ? void 0 : _a.semesterNum) < 5)
+                            return (sheet === null || sheet === void 0 ? void 0 : sheet.studyMode) == ((_b = st === null || st === void 0 ? void 0 : st.student) === null || _b === void 0 ? void 0 : _b.studyMode);
+                        return (sheet === null || sheet === void 0 ? void 0 : sheet.majorId) == ((_c = st === null || st === void 0 ? void 0 : st.student) === null || _c === void 0 ? void 0 : _c.majorId) && (sheet === null || sheet === void 0 ? void 0 : sheet.studyMode) == ((_d = st === null || st === void 0 ? void 0 : st.student) === null || _d === void 0 ? void 0 : _d.studyMode);
+                    });
                     let resp = mounts === null || mounts === void 0 ? void 0 : mounts.map((row) => {
                         var _a, _b;
                         const grade = (0, helper_1.getGrade)(row.totalScore, (_a = row.scheme) === null || _a === void 0 ? void 0 : _a.gradeMeta);
@@ -2423,7 +2453,7 @@ class AisController {
         });
     }
     stageAuccSheet(req, res) {
-        var _a, _b;
+        var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 // Fetch Active Semester
@@ -2436,7 +2466,7 @@ class AisController {
                 // Fetch Session Info
                 const session = yield ais.session.findFirst({ where: { id: sessionId, default: true } });
                 if (session) {
-                    if ((session === null || session === void 0 ? void 0 : session.tag) == 'main') {
+                    if (((_a = session === null || session === void 0 ? void 0 : session.tag) === null || _a === void 0 ? void 0 : _a.toLowerCase()) == 'main') {
                         // Fetch Mounted Courses all Program Levels
                         const mounts = yield ais.structure.findMany({ where: { status: true, program: { status: true } }, include: { program: true } });
                         if (mounts === null || mounts === void 0 ? void 0 : mounts.length) {
@@ -2444,7 +2474,7 @@ class AisController {
                                 if (meta.semesterNum % 2 == (session.semester == 'SEM2' ? 1 : 0))
                                     continue;
                                 var sessionModes = [];
-                                switch ((_a = meta === null || meta === void 0 ? void 0 : meta.program) === null || _a === void 0 ? void 0 : _a.category) {
+                                switch ((_b = meta === null || meta === void 0 ? void 0 : meta.program) === null || _b === void 0 ? void 0 : _b.category) {
                                     case "CP":
                                         sessionModes = ["M"];
                                         break;
@@ -2490,7 +2520,7 @@ class AisController {
                                     if (meta.semesterNum % 2 == (session.semester == 'SEM2' ? 1 : 0))
                                         continue;
                                     var sessionModes = [];
-                                    switch ((_b = meta === null || meta === void 0 ? void 0 : meta.program) === null || _b === void 0 ? void 0 : _b.category) {
+                                    switch ((_c = meta === null || meta === void 0 ? void 0 : meta.program) === null || _c === void 0 ? void 0 : _c.category) {
                                         case "CP":
                                             sessionModes = ["M"];
                                             break;
@@ -2663,10 +2693,11 @@ class AisController {
                 if (resp) {
                     let { courseId, programId, unitId, majorId, sessionId, semesterNum, studyMode } = resp;
                     // Update Student Assessment Publish Status
-                    yield ais.assessment.updateMany({
+                    const ups = yield ais.assessment.updateMany({
                         where: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, sessionId && ({ sessionId })), courseId && ({ courseId })), programId && ({ student: { programId } })), majorId && ({ student: { majorId } })), studyMode && ({ student: { studyMode } })), semesterNum && ({ semesterNum: Number(semesterNum) })),
                         data: { status: false }
                     });
+                    console.log(ups);
                     // Update Sheet
                     yield ais.sheet.update({ where: { id: req.params.id }, data: { certified: false, certifierId: null } });
                     // Return Response

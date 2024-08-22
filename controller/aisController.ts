@@ -277,7 +277,19 @@ export default class AisController {
 
      async fetchStudentTranscript(req: Request,res: Response) {
          try {
-            const st:any = await ais.student.findFirst({ where: { OR: [ { id: req.params.id }, { indexno: req.params.id } ] } });
+            const st:any = await ais.student.findFirst({ 
+               where: { 
+                  OR:[
+                      { 
+                        AND: [ 
+                           { indexno: { not: null } }, 
+                           { id: req.params.id } 
+                      ]}, 
+                      { indexno: req.params.id } 
+                  ] 
+               }
+            });
+            if(!st) throw("No index number generated")
             
             const resp = await ais.assessment.findMany({
                where: { indexno: st?.indexno },
@@ -2094,17 +2106,22 @@ export default class AisController {
   async fetchSheets(req: Request,res: Response) {
       const { page = 1, pageSize = 6, keyword = '' } :any = req.query;
       const offset = (page - 1) * pageSize;
-      let searchCondition = {}
+      let searchCondition:any = {
+         where: { 
+           session: { OR: [{ default: true  },{ assignLateSheet: true  }] }
+         }
+      }
       try {
          if(keyword) searchCondition = { 
             where: { 
                session: { 
                  OR: [
-                     { default: true  },
-                     { assignLateSheet: true  },
+                  { default: true  },
+                  { assignLateSheet: true  },
                  ]
                },
                OR: [
+                  { courseId: { contains: keyword }},
                   { session: { title: { contains: keyword } }},
                   { course: { title: { contains: keyword } }},
                   { course: { id: { contains: keyword } }},
@@ -2234,7 +2251,12 @@ export default class AisController {
             mounts = mounts.filter((meta: any) => (meta?.semesterNum % 2) == (session?.semester == 'SEM2' ? 0 : 1))
             // Check whether Sheets are generated 
             const form = await ais.sheet.findFirst({ where: { sessionId, status: true }})
-            if(form) return res.status(202).json({ message: `sheets exists for calendar` });
+            if(form){
+               // Update Generated Flag
+               await ais.session.update({ where: { id: sessionId }, data: { stageSheet: true } })
+               // Return Response
+               return res.status(202).json({ message: `sheets exists for calendar` });
+            }
             
             // Upsert Bulk into Sheet 
             const resp:any = await Promise.all(mounts?.map(async (row:any) => {
@@ -2274,11 +2296,11 @@ export default class AisController {
          const { sheetId } = req.body;
          // Fetch Session Info
          const sheet = await ais.sheet.findFirst({ where: { id: sheetId, status: true }, include:{ program: true, unit: true, session: true, course: true, major: true  }})
+         //console.log(sheet)
          if(sheet){
             // Fetch Mounted Courses all Program Levels
             let mounts = await ais.assessment.findMany({ 
                 where: { 
-                  status: true,
                   semesterNum: sheet.semesterNum,
                   sessionId: sheet?.sessionId,  
                   courseId: sheet?.courseId,  
@@ -2287,8 +2309,13 @@ export default class AisController {
                 include: { student: true, scheme: true },
                 orderBy: [ { student: { fname: 'asc' }}, ]
             })
+            mounts = mounts?.filter((st: any,i: number) => {
+               // if(st?.student?.semesterNum < 5) return sheet?.programId == st?.student?.programId && sheet?.studyMode == st?.student?.studyMode;
+               // return sheet?.programId == st?.student?.programId && sheet?.majorId == st?.student?.majorId && sheet?.studyMode == st?.student?.studyMode;
+               if(st?.student?.semesterNum < 5) return sheet?.studyMode == st?.student?.studyMode;
+               return sheet?.majorId == st?.student?.majorId && sheet?.studyMode == st?.student?.studyMode;
+            });
             
-            mounts = mounts.filter((st: any,i: number) => sheet.majorId == st.student.majorId && sheet.studyMode == st.student.studyMode);
             let resp = mounts?.map((row:any) => {  
                const grade = getGrade(row.totalScore, row.scheme?.gradeMeta);
                const gradepoint = getGradePoint(row.totalScore, row.scheme?.gradeMeta);
@@ -2298,6 +2325,7 @@ export default class AisController {
                   gradepoint
                })
             });
+            
             if(resp){
                res.status(200).json(resp)
             } else {
@@ -2375,7 +2403,7 @@ export default class AisController {
          // Fetch Session Info
          const session = await ais.session.findFirst({ where: { id: sessionId, default: true }})
          if(session){
-            if(session?.tag == 'main'){
+            if(session?.tag?.toLowerCase() == 'main'){
                // Fetch Mounted Courses all Program Levels
                const mounts = await ais.structure.findMany({ where: { status: true, program: { status: true } }, include: { program: true }})
                if(mounts?.length){
@@ -2604,7 +2632,7 @@ export default class AisController {
          if(resp){
             let { courseId,programId,unitId,majorId,sessionId,semesterNum,studyMode } = resp
             // Update Student Assessment Publish Status
-            await ais.assessment.updateMany({ 
+            const ups = await ais.assessment.updateMany({ 
                where: {
                   ... sessionId && ({ sessionId }),
                   ... courseId && ({ courseId }),
@@ -2616,6 +2644,7 @@ export default class AisController {
                }, 
                data: { status: false } 
             })
+            console.log(ups)
             // Update Sheet
             await ais.sheet.update({ where: { id: req.params.id }, data: { certified: false, certifierId: null } })
             // Return Response

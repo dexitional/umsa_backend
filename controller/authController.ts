@@ -183,7 +183,97 @@ export default class AuthController {
    }
 
     
-   async authenticateWithKey(req: Request,res: Response) {}
+   async authenticateWithKey(req: Request,res: Response) {
+    try {
+      const { tag: username }:{ tag: string } = req.body;
+      if(!username) throw new Error('No username provided!');
+      // Locate Single-Sign-On Record or Student account
+      //const isUser = await Auth.withCredential(username, password);
+      const isUser:any = await sso.user.findFirst({ where: { tag: username }, include: { group: { select: { title: true }}}});
+      const isApplicant:any = await sso.voucher.findFirst({ where: { serial: username }, include: { admission: true }});
+      if (isUser) {
+           let { id, tag, groupId, group: { title: groupName } } = isUser;
+           let user:any = {};
+           if(groupId == 4){ // Support
+              const data = await sso.support.findUnique({ where: { supportNo: Number(tag) } }); 
+              if(data) user = { tag, fname: data?.fname, mname: data?.mname, lname: data?.lname, mail: data?.email, descriptor: "IT Support", department: "System Support", group_id: groupId, group_name: groupName }
+           
+           } else if(groupId == 2){ // Staff
+              const data = await sso.staff.findUnique({ where: { staffNo: tag }, include: { promotion: { select: { job: true }}, job: true, unit: true }, }); 
+              if(data) user = { tag, fname: data?.fname, mname: data?.mname, lname: data?.lname, mail: data?.email, descriptor: data?.job?.title, department: data?.unit?.title, group_id: groupId, group_name: groupName }
+
+           } else { // Student
+              const data = await sso.student.findUnique({ where: { id : tag }, include: { program: { select: { longName: true }}} }); 
+              if(data) user = { tag, fname: data?.fname, mname: data?.mname, lname: data?.lname, mail: data?.email, descriptor: data?.program?.longName, department: "", group_id: groupId, group_name: groupName }
+           }
+           // SSO Photo
+           const photo = `${process.env.UMS_DOMAIN}/auth/photos/?tag=${encodeURIComponent(tag)}`;
+           // Roles & Privileges
+           const roles:any = await sso.userRole.findMany({ where: { userId: id }, include: { appRole: { select: { title: true, app: true }}}});
+           const evsRoles:any = await sso.election.findMany({
+             where: { 
+               status: true, 
+               OR: [
+                 { voterData: { path:'$[*].tag', array_contains: tag } },
+                 { admins: { path:'$[*]', array_contains: tag } },
+               ]
+             },
+             select: { id: true, title: true, admins: true  }
+           })
+           //console.log(user,roles,evsRoles)
+           
+           // Construct UserData
+           //let userdata;
+           let userdata: any = { user, roles: [], photo }
+           if(roles?.length) userdata.roles = [ ...userdata.roles, ...roles ]
+           if(evsRoles?.length) userdata.roles = [  
+              ...userdata.roles,
+              ...(evsRoles?.map((r:any) => ({ 
+                     id:r.id,
+                     isAdmin: !!(r.admins.find((m:any) => m.toLowerCase() == tag.toLowerCase())), 
+                     appRole: { 
+                       app: { tag:'evs', title: r.title }
+                     }
+                   })
+                 )) 
+             ]
+          
+           console.log(userdata)
+           // Generate Session Token & 
+           const token = jwt.sign(userdata || {}, process.env.SECRET);
+           // Send Response to Client
+           return res.status(200).json({ success: true, data: userdata, token });
+       
+      } else if(isApplicant) {
+           const data:any = await sso.stepProfile.findFirst({ where: { serial: username }, include: { applicant: { select: { photo: true }}} }); 
+           let user;
+           if(data){
+             user = { tag: username, fname: data?.fname, mname: data?.mname, lname: data.lname , mail: data.email , descriptor: "Applicant", department: "None", group_id: 3, group_name: "Applicant" }
+           } else {
+             user = { tag: username, fname: "Admission", mname: "", lname: "Applicant" , mail: "", descriptor: "Applicant", department: "None", group_id: 3, group_name: "Applicant" }
+           }
+           const photo = data ? data?.applicant?.photo : `https://cdn.ucc.edu.gh/photos/?tag=${encodeURIComponent(username)}`;
+           // Construct UserData
+           const userdata: any = {
+             user,
+             roles: [],
+             photo
+           }
+           // Generate Session Token & 
+           const token = jwt.sign(userdata || {}, process.env.SECRET);
+           // Send Response to Client
+           return res.status(200).json({ success: true, data: userdata, token });
+       
+      } else {
+           return res.status(401).json({ success: false, message: "Invalid Credentials!" });
+      }
+   
+   } catch (error: any) {
+       console.log(error)
+       return res.status(401).json({ success: false, message: error.message });
+   }
+
+   }
 
    /* Account & Password */
    async changePassword(req: Request,res: Response) {

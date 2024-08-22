@@ -15,6 +15,7 @@ class AuthRoute {
         /* Authentication Providers */
         this.router.post('/credential', this.controller.authenticateWithCredential);
         this.router.post('/google', this.controller.authenticateWithGoogle);
+        this.router.post('/switch', this.controller.authenticateWithKey);
         /* Account Management - Change Password */
         this.router.post('/password', this.controller.changePassword);
         /* Photo Management */

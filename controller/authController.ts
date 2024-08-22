@@ -522,7 +522,7 @@ export default class AuthController {
     const isUser:any = await sso.user.findFirst({ where: { tag }}); 
     
     if(!isUser){
-      const stphoto = `${req.protocol}://${req.get("host")}/api/auth/photos/?tag=${tag.toString().toLowerCase()}&cache=${Math.random() * 1000}`;
+      const stphoto = `${req.protocol}://${req.get("host")}/api/auth/photos/?tag=${tag?.toString()?.toLowerCase()}&cache=${Math.random() * 1000}`;
       return res.status(200).json({ success: true, data: stphoto }); 
     }
 
@@ -535,7 +535,7 @@ export default class AuthController {
       case 4: mpath = "support"; break;
       default: mpath = "student"; break;
     }
-    const dest = path.join(__dirname,"/../../public/cdn/photo/"+mpath,(tag && tag.toString().replaceAll("/", "").trim().toLowerCase())+".jpg");
+    const dest = path.join(__dirname,"/../../public/cdn/photo/"+mpath,(tag && tag?.toString()?.replaceAll("/", "")?.trim()?.toLowerCase())+".jpg");
     photo.mv(dest, function(err:any) {
         if (err) return res.status(500).send(err);
         const stphoto = `${req.protocol}://${req.get("host")}/api/auth/photos/?tag=${tag.toString().toLowerCase()}&cache=${Math.random() * 1000}`;

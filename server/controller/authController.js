@@ -504,16 +504,16 @@ class AuthController {
                 let mtag = (_b = req === null || req === void 0 ? void 0 : req.query) === null || _b === void 0 ? void 0 : _b.tag;
                 mtag = (_c = mtag === null || mtag === void 0 ? void 0 : mtag.trim()) === null || _c === void 0 ? void 0 : _c.toLowerCase();
                 const tag = (_d = mtag === null || mtag === void 0 ? void 0 : mtag.replaceAll("/", "")) === null || _d === void 0 ? void 0 : _d.replaceAll("_", "");
-                if (!mtag && fs.statSync(path.join(__dirname, `/../../public/cdn/photo/evs`, `${eid}.png`)))
-                    res.status(200).sendFile(path.join(__dirname, `/../../public/cdn/photo/evs`, `${eid}.png`));
-                else if (fs.statSync(path.join(__dirname, `/../../public/cdn/photo/evs/${eid}`, `${tag}.jpg`)))
-                    res.status(200).sendFile(path.join(__dirname, `/../../public/cdn/photo/evs/${eid}`, `${tag}.jpg`));
+                if (!mtag && fs.existsSync(path.join(__dirname, `/../../public/cdn/photo/evs`, `${eid}.png`)))
+                    return res.status(200).sendFile(path.join(__dirname, `/../../public/cdn/photo/evs`, `${eid}.png`));
+                else if (fs.existsSync(path.join(__dirname, `/../../public/cdn/photo/evs/${eid}`, `${tag}.jpg`)))
+                    return res.status(200).sendFile(path.join(__dirname, `/../../public/cdn/photo/evs/${eid}`, `${tag}.jpg`));
                 else
-                    res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/") + `/none.png`);
+                    return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/") + `/none.png`);
             }
             catch (err) {
                 console.log(err);
-                res.status(200).sendFile(path.join(__dirname, "/../../public/cdn", "none.png"));
+                return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn", "none.png"));
             }
         });
     }
@@ -528,7 +528,7 @@ class AuthController {
                 let mtag = (_a = req === null || req === void 0 ? void 0 : req.query) === null || _a === void 0 ? void 0 : _a.tag;
                 mtag = mtag.trim().toLowerCase();
                 const tag = mtag.replaceAll("/", "").replaceAll("_", "");
-                if (fs.statSync(path.join(__dirname, "/../../public/cdn/photo/staff/", `${tag}.jpg`)))
+                if (fs.existsSync(path.join(__dirname, "/../../public/cdn/photo/staff/", `${tag}.jpg`)))
                     return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/photo/staff/", `${tag}.jpg`));
                 else if (fs.existsSync(path.join(__dirname, "/../../public/cdn/photo/staff/", `${tag}.jpeg`)))
                     return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/photo/staff/", `${tag}.jpg`));
@@ -552,15 +552,18 @@ class AuthController {
         });
     }
     postPhoto(req, res) {
+        var _a, _b, _c, _d, _e;
         return __awaiter(this, void 0, void 0, function* () {
+            console.log("Body: ", req.body);
+            console.log("FILES: ", req.files);
             if (!req.files || Object.keys(req.files).length === 0) {
                 return res.status(400).send('No files were uploaded.');
             }
-            const photo = req.files.photo;
+            const photo = (_a = req === null || req === void 0 ? void 0 : req.files) === null || _a === void 0 ? void 0 : _a.photo;
             const { tag } = req.body;
             const isUser = yield sso.user.findFirst({ where: { tag } });
             if (!isUser) {
-                const stphoto = `${req.protocol}://${req.get("host")}/api/auth/photos/?tag=${tag.toString().toLowerCase()}&cache=${Math.random() * 1000}`;
+                const stphoto = `${req.protocol}://${req.get("host")}/api/auth/photos/?tag=${(_b = tag === null || tag === void 0 ? void 0 : tag.toString()) === null || _b === void 0 ? void 0 : _b.toLowerCase()}&cache=${Math.random() * 1000}`;
                 return res.status(200).json({ success: true, data: stphoto });
             }
             let { groupId } = isUser;
@@ -582,7 +585,7 @@ class AuthController {
                     mpath = "student";
                     break;
             }
-            const dest = path.join(__dirname, "/../../public/cdn/photo/" + mpath, (tag && tag.toString().replaceAll("/", "").trim().toLowerCase()) + ".jpg");
+            const dest = path.join(__dirname, "/../../public/cdn/photo/" + mpath, (tag && ((_e = (_d = (_c = tag === null || tag === void 0 ? void 0 : tag.toString()) === null || _c === void 0 ? void 0 : _c.replaceAll("/", "")) === null || _d === void 0 ? void 0 : _d.trim()) === null || _e === void 0 ? void 0 : _e.toLowerCase())) + ".jpg");
             photo.mv(dest, function (err) {
                 if (err)
                     return res.status(500).send(err);
@@ -648,8 +651,8 @@ class AuthController {
             tag = tag.toString().replaceAll("/", "").trim().toLowerCase();
             const file = `${spath}${tag}.jpg`;
             const file2 = `${spath}${tag}.jpeg`;
-            var stats = fs.statSync(file);
-            var stats2 = fs.statSync(file2);
+            var stats = fs.existsSync(file);
+            var stats2 = fs.existsSync(file2);
             if (stats) {
                 yield (0, helper_1.rotateImage)(file);
                 const stphoto = `${req.protocol}://${req.get("host")}/api/photos/?tag=${tag.toString().toLowerCase()}&cache=${Math.random() * 1000}`;
@@ -687,9 +690,14 @@ class AuthController {
             }
             tag = tag.toString().replaceAll("/", "").replaceAll("_", "").trim().toLowerCase();
             const file = `${spath}${tag}.jpg`;
-            var stats = fs.statSync(file);
-            if (stats) {
+            const file2 = `${spath}${tag}.jpeg`;
+            if (fs.existsSync(file)) {
                 fs.unlinkSync(file);
+                const stphoto = `${req.protocol}://${req.get("host")}/api/photos/?tag=${tag.toString().toLowerCase()}&cache=${Math.random() * 1000}`;
+                res.status(200).json({ success: true, data: stphoto });
+            }
+            else if (fs.existsSync(file2)) {
+                fs.unlinkSync(file2);
                 const stphoto = `${req.protocol}://${req.get("host")}/api/photos/?tag=${tag.toString().toLowerCase()}&cache=${Math.random() * 1000}`;
                 res.status(200).json({ success: true, data: stphoto });
             }

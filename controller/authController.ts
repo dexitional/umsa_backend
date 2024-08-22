@@ -617,12 +617,18 @@ export default class AuthController {
     }
     tag = tag.toString().replaceAll("/", "").replaceAll("_", "").trim().toLowerCase();
     const file = `${spath}${tag}.jpg`;
-    var stats = fs.statSync(file);
-    if (stats) {
+    const file2 = `${spath}${tag}.jpeg`;
+    if (fs.existsSync(file)) {
         fs.unlinkSync(file);
         const stphoto = `${req.protocol}://${req.get("host")}/api/photos/?tag=${tag.toString().toLowerCase()}&cache=${Math.random() * 1000}`;
         res.status(200).json({ success: true, data: stphoto });
-    } else {
+    } else if (fs.existsSync(file2)) {
+      fs.unlinkSync(file2);
+      const stphoto = `${req.protocol}://${req.get("host")}/api/photos/?tag=${tag.toString().toLowerCase()}&cache=${Math.random() * 1000}`;
+      res.status(200).json({ success: true, data: stphoto });
+  }
+    
+    else {
       res.status(200).json({ success: false, data: null, msg: "Photo Not Found!" });
     }
   }

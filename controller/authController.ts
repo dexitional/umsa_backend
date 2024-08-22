@@ -511,10 +511,13 @@ export default class AuthController {
   }
 
   async postPhoto(req: Request,res: Response) {
+    console.log("Body: ",req.body)
+    console.log("FILES: ",req.files)
+
     if (!req.files || Object.keys(req.files).length === 0) {
        return res.status(400).send('No files were uploaded.');
     }
-    const photo:any = req.files.photo;
+    const photo:any = req?.files?.photo;
     const { tag } = req.body;
     const isUser:any = await sso.user.findFirst({ where: { tag }}); 
     

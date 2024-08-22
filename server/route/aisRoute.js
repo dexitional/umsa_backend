@@ -36,6 +36,7 @@ class AisRoute {
         this.router.post('/students/reset', [verifyToken], this.controller.resetStudent);
         this.router.post('/students/photo', [verifyToken], this.controller.changePhoto);
         this.router.post('/students/indexgen', [verifyToken], this.controller.generateIndex);
+        this.router.post('/students/mailgen', [verifyToken], this.controller.generateEmail);
         this.router.post('/students', [verifyToken], this.controller.postStudent);
         this.router.patch('/students/:id', [verifyToken], this.controller.updateStudent);
         this.router.delete('/students/:id', [verifyToken], this.controller.deleteStudent);

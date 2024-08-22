@@ -26,6 +26,7 @@ const Auth = new authModel_1.default();
 const sha1 = require('sha1');
 const { customAlphabet } = require("nanoid");
 const pwdgen = customAlphabet("1234567890abcdefghijklmnopqrstuvwzyx", 6);
+const sms = require('../config/sms');
 class AisController {
     fetchTest(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
@@ -319,6 +320,7 @@ class AisController {
                         session: { select: { title: true, } },
                         course: { select: { title: true } },
                     },
+                    orderBy: { session: { createdAt: 'asc' } }
                 });
                 if (resp) {
                     var mdata = new Map();
@@ -409,7 +411,8 @@ class AisController {
                 const isUser = yield ais.user.findFirst({ where: { tag: studentId } });
                 if (isUser)
                     throw ("Student Portal Account Exists!");
-                const ssoData = { tag: studentId, username: studentId, password: sha1(password), unlockPin: password }; // Others
+                const ssoData = { tag: studentId, username: studentId, password: sha1(password), unlockPin: password }; // AUCC only
+                //   const ssoData = { tag:studentId, username:studentId, password:sha1(password), unlockPin: password }  // MLK & Others
                 // Populate SSO Account
                 const resp = yield ais.user.create({
                     data: Object.assign(Object.assign({}, ssoData), { group: { connect: { id: 1 } } }),
@@ -431,14 +434,19 @@ class AisController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { studentId } = req.body;
-                console.log(studentId);
                 const password = pwdgen();
                 const resp = yield ais.user.updateMany({
                     where: { tag: studentId },
-                    data: { password: sha1(password), unlockPin: password },
+                    // data: { password: sha1(password), unlockPin: password },
+                    data: { password: sha1(password) },
+                    include: true
                 });
-                console.log(resp);
                 if (resp === null || resp === void 0 ? void 0 : resp.count) {
+                    // Send Password By SMS
+                    const st = yield ais.student.findFirst({ where: { id: studentId } });
+                    if (st === null || st === void 0 ? void 0 : st.phone)
+                        yield sms(st === null || st === void 0 ? void 0 : st.phone, `Hi! Your new credentials is username: ${st === null || st === void 0 ? void 0 : st.instituteEmail}, password: ${password}`);
+                    // Return Password
                     res.status(200).json({ password });
                 }
                 else {
@@ -493,6 +501,43 @@ class AisController {
                 });
                 if (resp) {
                     res.status(200).json({ indexno });
+                }
+                else {
+                    res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json(error);
+            }
+        });
+    }
+    generateEmail(req, res) {
+        var _a;
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                let count = 1;
+                let isNew = true;
+                const { studentId } = req.body;
+                const st = yield ais.student.findFirst({ where: { id: studentId } });
+                if (st === null || st === void 0 ? void 0 : st.instituteEmail)
+                    throw ("mail already exists !");
+                let username = `${(_a = st === null || st === void 0 ? void 0 : st.fname) === null || _a === void 0 ? void 0 : _a.replaceAll(' ', '')}.${st === null || st === void 0 ? void 0 : st.lname}`.toLowerCase();
+                while (isNew) {
+                    const ck = yield ais.student.findFirst({ where: { instituteEmail: { startsWith: `${username}${count > 1 ? count : ''}` } } });
+                    if (ck)
+                        count = count + 1;
+                    else
+                        isNew = false;
+                }
+                // Update Student Email
+                const instituteEmail = `${username}@${process.env.UMS_MAIL}`;
+                const resp = yield ais.student.update({ where: { id: studentId }, data: { instituteEmail } });
+                if (resp) {
+                    // Update SSO User
+                    yield ais.user.updateMany({ where: { tag: studentId }, data: { username: instituteEmail } });
+                    // Return Response
+                    res.status(200).json(resp);
                 }
                 else {
                     res.status(202).json({ message: `no records found` });

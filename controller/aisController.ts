@@ -483,21 +483,21 @@ export default class AisController {
             let isNew = true;
             const { studentId } = req.body;
             const st = await ais.student.findFirst({ where: { id: studentId }});
-            
             if(st?.instituteEmail) throw("mail already exists !");
-            let username = `${st?.fname}${st?.lname}`.toLowerCase();
-
+            let username = `${st?.fname?.replaceAll(' ','')}.${st?.lname}`.toLowerCase();
+            
             while(isNew){
                const ck =  await ais.student.findFirst({ where: { instituteEmail: { startsWith: `${username}${count > 1 ? count:''}` } }});
                if(ck) count = count+1;
-               else return
+               else isNew = false;
             }
             // Update Student Email
-            const institutEmail =  `${username}@${process.env.UMS_MAIL}`;
-            const resp = await ais.student.update({ where: {  id: studentId }, data: { institutEmail } });
-            
+            const instituteEmail =  `${username}@${process.env.UMS_MAIL}`;
+            const resp = await ais.student.update({ where: {  id: studentId }, data: { instituteEmail } });
             if(resp){
-               // Return 
+               // Update SSO User
+               await ais.user.updateMany({ where: {  tag: studentId }, data: { username: instituteEmail } });
+               // Return Response
                res.status(200).json(resp)
             } else {
                res.status(202).json({ message: `no records found` })

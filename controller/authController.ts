@@ -474,12 +474,12 @@ export default class AuthController {
         mtag = mtag?.trim()?.toLowerCase();
         const tag = mtag?.replaceAll("/", "")?.replaceAll("_", "");
 
-        if(!mtag && fs.statSync(path.join(__dirname, `/../../public/cdn/photo/evs`,`${eid}.png`))) res.status(200).sendFile(path.join(__dirname, `/../../public/cdn/photo/evs`,`${eid}.png`));
-        else if(fs.statSync(path.join(__dirname, `/../../public/cdn/photo/evs/${eid}`,`${tag}.jpg`))) res.status(200).sendFile(path.join(__dirname, `/../../public/cdn/photo/evs/${eid}`,`${tag}.jpg`));
-        else res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/")+`/none.png`);
+        if(!mtag && fs.existsSync(path.join(__dirname, `/../../public/cdn/photo/evs`,`${eid}.png`))) return res.status(200).sendFile(path.join(__dirname, `/../../public/cdn/photo/evs`,`${eid}.png`));
+        else if(fs.existsSync(path.join(__dirname, `/../../public/cdn/photo/evs/${eid}`,`${tag}.jpg`))) return res.status(200).sendFile(path.join(__dirname, `/../../public/cdn/photo/evs/${eid}`,`${tag}.jpg`));
+        else return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn/")+`/none.png`);
     } catch(err) {
         console.log(err)
-        res.status(200).sendFile(path.join(__dirname, "/../../public/cdn", "none.png"));
+        return res.status(200).sendFile(path.join(__dirname, "/../../public/cdn", "none.png"));
     }
   }
 
@@ -589,8 +589,8 @@ export default class AuthController {
     tag = tag.toString().replaceAll("/", "").trim().toLowerCase();
     const file = `${spath}${tag}.jpg`;
     const file2 = `${spath}${tag}.jpeg`;
-    var stats = fs.statSync(file);
-    var stats2 = fs.statSync(file2);
+    var stats = fs.existsSync(file);
+    var stats2 = fs.existsSync(file2);
     if (stats) {
       await rotateImage(file);
       const stphoto = `${req.protocol}://${req.get("host")}/api/photos/?tag=${tag.toString().toLowerCase()}&cache=${Math.random() * 1000}`;

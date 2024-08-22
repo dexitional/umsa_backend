@@ -300,6 +300,7 @@ export default class AisController {
                   session: { select: { title: true, } },
                   course:{ select:{ title:true } },
                }, 
+               orderBy: { session: { createdAt: 'asc'}}
             });
             
             if(resp){ 

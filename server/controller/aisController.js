@@ -482,7 +482,7 @@ class AisController {
         });
     }
     generateIndex(req, res) {
-        var _a, _b, _c;
+        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { studentId } = req.body;
@@ -493,8 +493,14 @@ class AisController {
                 });
                 if (student === null || student === void 0 ? void 0 : student.indexno)
                     throw ("Index number exists for student!");
-                const count = ((_a = student === null || student === void 0 ? void 0 : student.progCount) === null || _a === void 0 ? void 0 : _a.toString().length) == 1 ? `00${student === null || student === void 0 ? void 0 : student.progCount}` : ((_b = student === null || student === void 0 ? void 0 : student.progCount) === null || _b === void 0 ? void 0 : _b.toString().length) == 2 ? `0${student === null || student === void 0 ? void 0 : student.progCount}` : student === null || student === void 0 ? void 0 : student.progCount;
-                indexno = `${(_c = student === null || student === void 0 ? void 0 : student.program) === null || _c === void 0 ? void 0 : _c.prefix}/${(0, moment_1.default)((student === null || student === void 0 ? void 0 : student.entryDate) || new Date()).format("YY")}/${count}`;
+                const students = yield ais.$queryRaw `select * from ais_student where date_format(entryDate,'%m%y') = ${(0, moment_1.default)(student === null || student === void 0 ? void 0 : student.entryDate).format("mmyyyy")}`;
+                // AUCC INDEX NUMBER GENERATION
+                const studentCount = (students === null || students === void 0 ? void 0 : students.length) + 1;
+                const count = studentCount.toString().length == 1 ? `000${studentCount}` : studentCount.toString().length == 2 ? `00${studentCount}` : studentCount.toString().length == 3 ? `0${studentCount}` : studentCount;
+                indexno = `${(_a = student === null || student === void 0 ? void 0 : student.program) === null || _a === void 0 ? void 0 : _a.prefix}${(0, moment_1.default)((student === null || student === void 0 ? void 0 : student.entryDate) || new Date()).format("MMYY")}${count}`;
+                // MLK INDEX NUMBER GENERATION
+                // const count = student?.progCount?.toString().length == 1 ? `00${student?.progCount}`  : student?.progCount?.toString().length == 2 ? `0${student?.progCount}` : student?.progCount;
+                // indexno = `${student?.program?.prefix}/${moment(student?.entryDate || new Date()).format("YY")}/${count}`
                 const resp = yield ais.student.update({
                     where: { id: studentId },
                     data: { indexno },
@@ -559,6 +565,7 @@ class AisController {
                 delete req.body.regionId;
                 delete req.body.religionId;
                 delete req.body.disabilityId;
+                req.body.indexno = !req.body.indexno ? null : req.body.indexno;
                 const resp = yield ais.student.create({
                     data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, req.body), programId && ({ program: { connect: { id: programId } } })), titleId && ({ title: { connect: { id: titleId } } })), countryId && ({ country: { connect: { id: countryId } } })), regionId && ({ region: { connect: { id: regionId } } })), religionId && ({ religion: { connect: { id: religionId } } })), disabilityId && ({ disability: { connect: { id: disabilityId } } }))
                 });
@@ -585,6 +592,8 @@ class AisController {
                 delete req.body.regionId;
                 delete req.body.religionId;
                 delete req.body.disabilityId;
+                req.body.indexno = !req.body.indexno ? null : req.body.indexno;
+                //req.body.entryDate  = moment(req.body.indexno).toDate;
                 const resp = yield ais.student.update({
                     where: { id: req.params.id },
                     data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, req.body), programId && ({ program: { connect: { id: programId } } })), titleId && ({ title: { connect: { id: titleId } } })), countryId && ({ country: { connect: { id: countryId } } })), regionId && ({ region: { connect: { id: regionId } } })), religionId && ({ religion: { connect: { id: religionId } } })), disabilityId && ({ disability: { connect: { id: disabilityId } } }))

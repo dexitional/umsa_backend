@@ -588,7 +588,7 @@ class AmsController {
                     searchCondition = {
                         where: {
                             OR: [
-                                { title: { contains: keyword } },
+                                { serial: { contains: keyword } },
                                 { stage: { title: { contains: keyword } } },
                                 { applyType: { title: { contains: keyword } } },
                             ],

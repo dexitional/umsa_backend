@@ -460,8 +460,16 @@ export default class AisController {
             include: {  program:{ select:{ prefix:true }}}, 
         })
         if(student?.indexno) throw("Index number exists for student!")
-        const count = student?.progCount?.toString().length == 1 ? `00${student?.progCount}`  : student?.progCount?.toString().length == 2 ? `0${student?.progCount}` : student?.progCount;
-        indexno = `${student?.program?.prefix}/${moment(student?.entryDate || new Date()).format("YY")}/${count}`
+        const students = await ais.$queryRaw`select * from ais_student where date_format(entryDate,'%m%y') = ${moment(student?.entryDate).format("mmyyyy")}`;
+        // AUCC INDEX NUMBER GENERATION
+        const studentCount = students?.length+1;
+        const count = studentCount.toString().length == 1 ? `000${studentCount}` : studentCount.toString().length == 2 ? `00${studentCount}` : studentCount.toString().length == 3 ? `0${studentCount}` : studentCount;
+        indexno = `${student?.program?.prefix}${moment(student?.entryDate || new Date()).format("MMYY")}${count}`
+         
+      // MLK INDEX NUMBER GENERATION
+      // const count = student?.progCount?.toString().length == 1 ? `00${student?.progCount}`  : student?.progCount?.toString().length == 2 ? `0${student?.progCount}` : student?.progCount;
+      // indexno = `${student?.program?.prefix}/${moment(student?.entryDate || new Date()).format("YY")}/${count}`
+        
         const resp = await ais.student.update({
             where: { id: studentId },
             data: { indexno },
@@ -518,6 +526,7 @@ export default class AisController {
          delete req.body.titleId;    delete req.body.programId;
          delete req.body.countryId;  delete req.body.regionId;
          delete req.body.religionId; delete req.body.disabilityId;
+         req.body.indexno  = !req.body.indexno ? null : req.body.indexno;
          
          const resp = await ais.student.create({
            data: {
@@ -528,6 +537,7 @@ export default class AisController {
              ... regionId && ({ region: { connect: { id:regionId }}}),
              ... religionId && ({ religion: { connect: { id:religionId }}}),
              ... disabilityId && ({ disability: { connect: { id:disabilityId }}}),
+            
            }
          })
          if(resp){
@@ -548,7 +558,9 @@ export default class AisController {
           delete req.body.titleId;    delete req.body.programId;
           delete req.body.countryId;  delete req.body.regionId;
           delete req.body.religionId; delete req.body.disabilityId;
-          
+          req.body.indexno  = !req.body.indexno ? null : req.body.indexno;
+          //req.body.entryDate  = moment(req.body.indexno).toDate;
+
           const resp = await ais.student.update({
             where: { id: req.params.id },
             data: {

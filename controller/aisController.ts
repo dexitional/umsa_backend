@@ -1087,18 +1087,28 @@ export default class AisController {
 
   async fetchRegistration(req: Request,res: Response) {
       try {
-         const resp = await ais.assessment.findMany({
-            include: { 
-               course: { select: { title: true, creditHour: true }},
-               student: { select: { id: true, indexno: true, fname: true, mname: true, lname: true, gender: true, semesterNum: true, program: { select: { longName: true, department: true }} }},
-               session: { select:{ title: true }},
-            },
-            where: { 
-               indexno: req.params.indexno,
-               session: { default: true }
-            },
+         let resp;
+         const st = await ais.student.findUnique({ 
+            where: { id: req.params.indexno },
+            select: { id: true, indexno: true, fname: true, mname: true, lname: true, gender: true, semesterNum: true, program: { select: { longName: true, department: true }} },
          })
+         if(st) 
+            resp = await ais.assessment.findMany({
+               include: { 
+                  course: { select: { title: true, creditHour: true }},
+                  // student: { select: { id: true, indexno: true, fname: true, mname: true, lname: true, gender: true, semesterNum: true, program: { select: { longName: true, department: true }} }},
+                  session: { select:{ title: true }},
+               },
+               where: { 
+                  indexno: st?.indexno,
+                  session: { default: true }
+               },
+            })
+         console.log(req.params.indexno,st,resp)
          if(resp){
+            // Add Student Bio
+            resp = resp.map((r:any) => ({ ...r, student:st }));
+            // Return Response
             res.status(200).json(resp)
          } else {
             res.status(202).json({ message: `no record found` })

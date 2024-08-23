@@ -1128,18 +1128,28 @@ class AisController {
     fetchRegistration(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const resp = yield ais.assessment.findMany({
-                    include: {
-                        course: { select: { title: true, creditHour: true } },
-                        student: { select: { id: true, indexno: true, fname: true, mname: true, lname: true, gender: true, semesterNum: true, program: { select: { longName: true, department: true } } } },
-                        session: { select: { title: true } },
-                    },
-                    where: {
-                        indexno: req.params.indexno,
-                        session: { default: true }
-                    },
+                let resp;
+                const st = yield ais.student.findUnique({
+                    where: { id: req.params.indexno },
+                    select: { id: true, indexno: true, fname: true, mname: true, lname: true, gender: true, semesterNum: true, program: { select: { longName: true, department: true } } },
                 });
+                if (st)
+                    resp = yield ais.assessment.findMany({
+                        include: {
+                            course: { select: { title: true, creditHour: true } },
+                            // student: { select: { id: true, indexno: true, fname: true, mname: true, lname: true, gender: true, semesterNum: true, program: { select: { longName: true, department: true }} }},
+                            session: { select: { title: true } },
+                        },
+                        where: {
+                            indexno: st === null || st === void 0 ? void 0 : st.indexno,
+                            session: { default: true }
+                        },
+                    });
+                console.log(req.params.indexno, st, resp);
                 if (resp) {
+                    // Add Student Bio
+                    resp = resp.map((r) => (Object.assign(Object.assign({}, r), { student: st })));
+                    // Return Response
                     res.status(200).json(resp);
                 }
                 else {

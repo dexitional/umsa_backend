@@ -564,7 +564,6 @@ export default class AmsController {
             where: { 
                OR: [
                   { serial: { contains: keyword } },
-                  { title: { contains: keyword } },
                   { stage: { title: { contains: keyword }} },
                   { applyType: { title: { contains: keyword }} },
                ],

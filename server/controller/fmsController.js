@@ -1177,6 +1177,26 @@ class FmsController {
         });
     }
     /* Service charges */
+    fetchServiceList(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield fms.transtype.findMany({
+                    where: { status: true },
+                    orderBy: { createdAt: 'desc' }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(204).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
     fetchServices(req, res) {
         var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {

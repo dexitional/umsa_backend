@@ -1166,6 +1166,24 @@ export default class FmsController {
 
 
    /* Service charges */
+   async fetchServiceList(req: Request,res: Response) {
+      try {
+         const resp = await fms.transtype.findMany({
+             where: { status: true }, 
+             orderBy: { createdAt:'desc' } 
+         })
+         if(resp){
+            res.status(200).json(resp)
+         } else {
+            res.status(204).json({ message: `no record found` })
+         }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
+  }
+
+
    async fetchServices(req: Request,res: Response) {
    const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
    const offset = (page - 1) * pageSize;

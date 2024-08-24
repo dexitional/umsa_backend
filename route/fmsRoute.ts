@@ -53,6 +53,7 @@ class FmsRoute {
       
       /* Services */
       this.router.get('/services', this.controller.fetchServices);
+      this.router.get('/services/list', this.controller.fetchServiceList);
       this.router.get('/services/:id', this.controller.fetchService);
       this.router.post('/services', this.controller.postService);
       this.router.patch('/services/:id', this.controller.updateService);

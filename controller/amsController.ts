@@ -558,10 +558,13 @@ export default class AmsController {
    async fetchApplicants(req: Request,res: Response) {
       const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
       const offset = (page - 1) * pageSize;
-      let searchCondition = { }
+      let searchCondition:any = { 
+         admission: { default: true }
+      }
       try {
          if(keyword) searchCondition = { 
             where: { 
+               admission: { default: true },
                OR: [
                   { serial: { contains: keyword } },
                   { stage: { title: { contains: keyword }} },
@@ -747,7 +750,9 @@ export default class AmsController {
    async fetchShortlists(req: Request,res: Response) {
       const { page = 1, pageSize = 9, keyword = '' }: any = req.query;
       const offset = (page - 1) * pageSize;
-      let searchCondition = { }
+      let searchCondition:any = { 
+         admission: { default: true },
+      }
       try {
          if(keyword) searchCondition = { 
             where: { 

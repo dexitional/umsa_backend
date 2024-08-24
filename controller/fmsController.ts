@@ -413,9 +413,9 @@ export default class FmsController {
       try {
          const { studentId } = req.body;
          const st:any = await fms.student.findUnique({ where: { id: studentId } });
-         const charge:any = await fms.transtype.findFirst({ where: { id: 8 }, include: { servicefee: true } })
+         const charge:any = await fms.transtype.findFirst({ where: { id: 8 } })
          if(st && charge){
-            const fine = st?.entryGroup == 'GH' ? charge?.servicefee[0]?.amountInGhc : charge?.servicefee[0]?.amountInUsd;
+            const fine = st?.entryGroup == 'GH' ? charge?.amountInGhc : charge?.amountInUsd;
             const resp = await fms.charge.create({ 
                data: { 
                   title: `LATE REGISTRATION FINE`, 
@@ -832,12 +832,11 @@ export default class FmsController {
       // LOAD_API_SERVICES
       try {
          const resp = await fms.transtype.findMany({
-            where: { status: true },
-            include: { servicefee: { select: { amountInGhc: true, amountInUsd: true }, where: { status: true } } }
+            where: { status: true, visibility:'PUBLIC' },
          })
          if(resp?.length){
             const data = resp?.map((row:any) => {
-               return ({ serviceId: row.id, serviceName: row.title, serviceChargeInGHC: row.servicefee[0]?.amountInGhc || 0, serviceChargeInUSD: row.servicefee[0]?.amountInUsd || 0 });
+               return ({ serviceId: row.id, serviceName: row.title, serviceChargeInGHC: row.amountInGhc || 0, serviceChargeInUSD: row.amountInUsd || 0 });
             });
             res.status(200).json({ success: true, data })
          } else {
@@ -873,13 +872,13 @@ export default class FmsController {
                 ft = st?.accountNet;
 
               } else if([4,8].includes(type)){ /* Graduation, Late Fine  Charges */
-                const ac = await fms.servicefee.findUnique({ where: { transtypeId: Number(type) }});
-                if(ac) ft = st.entryGroup == 'INT' ? ac.amountInUsd: ac.amountInGhc;
+                const ac = await fms.transtype.findUnique({ where: { id: Number(type) }});
+                if(ac) ft = st?.entryGroup == 'INT' ? (ac?.amountInUsd || 0) : (ac?.amountInGhc || 0);
 
               } else if(type == 3){ /* Resit Charges */
                 const rs:any = await fms.resit.count({ where: { paid: false, indexno: st?.indexno  }});
-                const ac = await fms.servicefee.findUnique({ where: { transtypeId: Number(type) }});
-                if(ac && rs) ft = st.entryGroup == 'INT' ? rs?.count * ac.amountInUsd: rs?.count * ac.amountInGhc;
+                const ac = await fms.transtype.findUnique({ where: { id: Number(type) }});
+                if(ac && rs) ft = st.entryGroup == 'INT' ? rs?.count * (ac.amountInUsd || 0): rs?.count * (ac.amountInGhc || 0);
               }
               // Return Information
               return res.status(200).json({ success: true, data: { ...dt, serviceCharge: ft } });
@@ -1008,7 +1007,7 @@ export default class FmsController {
                   /* For Resit Payments */
                   if (serviceId == 3) {
                      // Retire Number of Resit Papers
-                     const resit_charge: any = await fms.servicefee.findUnique({ where: { transtypeId: Number(serviceId) } });
+                     const resit_charge: any = await fms.transtype.findUnique({ where: { id: Number(serviceId) } });
                      const pay_count = Math.floor(( st?.entryGroup == 'INT' ? resit_charge?.amountInUsd : resit_charge?.amountInGhc) % amountPaid);
                      const resits:any = await fms.resit.findMany({ where: { indexno: st?.indexno }, take: pay_count })
                      const filters:any = resits?.map((r:any) => ({ indexno: r.indexno }))
@@ -1198,12 +1197,11 @@ export default class FmsController {
          }
       }
       const resp = await fms.$transaction([
-         fms.servicefee.count({
+         fms.transtype.count({
             ...(searchCondition),
          }),
-         fms.servicefee.findMany({
+         fms.transtype.findMany({
             ...(searchCondition),
-            include: { transtype: true },
             skip: offset,
             take: Number(pageSize),
          })
@@ -1226,8 +1224,8 @@ export default class FmsController {
 
    async fetchService(req: Request,res: Response) {
       try {
-         const resp = await fms.servicefee.findUnique({
-            where: { transtypeId: Number(req.params.id) }
+         const resp = await fms.transtype.findUnique({
+            where: { id: Number(req.params.id) }
          })
          if(resp){
             res.status(200).json(resp)
@@ -1242,12 +1240,10 @@ export default class FmsController {
 
    async postService(req: Request,res: Response) {
       try {
-         const { transtypeId } = req.body
-         delete req.body.transtypeId; delete req.body.transtypeId;
-         const resp = await fms.servicefee.create({
+         delete req.body.transtypeId; 
+         const resp = await fms.transtype.create({
             data: {
                ... req.body,
-               ... transtypeId && ({ transtype: { connect: { id: transtypeId }}}),
             }
          })
          if(resp){
@@ -1264,15 +1260,13 @@ export default class FmsController {
 
    async updateService(req: Request,res: Response) {
       try {
-         const { transtypeId } = req.body
-         delete req.body.transtypeId; delete req.body.transtypeId;
-         const resp = await fms.servicefee.update({
+         delete req.body.transtypeId; 
+         const resp = await fms.transtype.update({
             where: { 
-              transtypeId: Number(req.params.id) 
+              id: Number(req.params.id) 
             },
             data: {
               ... req.body,
-              ... transtypeId && ({ transtype: { connect: { id: transtypeId }}}),
             }
          })
          if(resp){
@@ -1288,7 +1282,7 @@ export default class FmsController {
 
    async deleteService(req: Request,res: Response) {
       try {
-         const resp = await fms.servicefee.delete({ where: {  transtypeId: Number(req.params.id)  }})
+         const resp = await fms.transtype.delete({ where: {  id: Number(req.params.id)  }})
          if(resp){
             res.status(200).json(resp)
          } else {

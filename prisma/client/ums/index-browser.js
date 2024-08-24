@@ -642,6 +642,9 @@ exports.Prisma.TranstypeScalarFieldEnum = {
   id: 'id',
   title: 'title',
   visibility: 'visibility',
+  amountInGhc: 'amountInGhc',
+  amountInUsd: 'amountInUsd',
+  remark: 'remark',
   status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -659,16 +662,6 @@ exports.Prisma.TransactionScalarFieldEnum = {
   feeType: 'feeType',
   currency: 'currency',
   amount: 'amount',
-  createdAt: 'createdAt',
-  updatedAt: 'updatedAt'
-};
-
-exports.Prisma.ServicefeeScalarFieldEnum = {
-  transtypeId: 'transtypeId',
-  title: 'title',
-  amountInGhc: 'amountInGhc',
-  amountInUsd: 'amountInUsd',
-  status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -1639,7 +1632,6 @@ exports.Prisma.ModelName = {
   collector: 'collector',
   transtype: 'transtype',
   transaction: 'transaction',
-  servicefee: 'servicefee',
   studentAccount: 'studentAccount',
   activityFinanceApi: 'activityFinanceApi',
   activityFinanceVoucher: 'activityFinanceVoucher',

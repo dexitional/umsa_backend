@@ -487,7 +487,7 @@ model student {
   dob               DateTime?          @db.DateTime(3)
   maritalId         String?
   email             String?            @db.VarChar(255)
-  phone             String?            @db.VarChar(20)
+  phone             String?            @db.VarChar(25)
   hometown          String?            @db.VarChar(255)
   address           String?            @db.VarChar(350)
   guardianName      String?            @db.VarChar(350)
@@ -750,9 +750,8 @@ model assessment {
   session session @relation(fields: [sessionId], references: [id])
   scheme  scheme  @relation(fields: [schemeId], references: [id])
   course  course  @relation(fields: [courseId], references: [id])
-  student student @relation(fields: [indexno], references: [id])
+  student student @relation(fields: [indexno], references: [indexno])
 
-  @@unique([sessionId, courseId, indexno])
   @@index([sessionId, courseId, indexno])
   @@index([sessionId, courseId, semesterNum])
   @@map("ais_assessment")
@@ -1010,15 +1009,17 @@ model collector {
 }
 
 model transtype {
-  id         Int        @id @default(autoincrement())
-  title      String     @db.VarChar(255)
-  visibility visibility @default(PUBLIC)
-  status     Boolean    @default(true)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  id          Int        @id @default(autoincrement())
+  title       String     @db.VarChar(255)
+  visibility  visibility @default(PUBLIC)
+  amountInGhc Float?
+  amountInUsd Float?
+  remark      String?    @db.VarChar(350)
+  status      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   transaction transaction[]
-  servicefee  servicefee[]
 
   @@map("fms_transtype")
 }
@@ -1050,20 +1051,6 @@ model transaction {
   @@index([studentId])
   @@index([reference])
   @@map("fms_transaction")
-}
-
-model servicefee {
-  transtypeId Int      @unique
-  title       String   @db.VarChar(255)
-  amountInGhc Float
-  amountInUsd Float
-  status      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  transtype transtype? @relation(fields: [transtypeId], references: [id])
-
-  @@map("fms_servicefee")
 }
 
 model studentAccount {

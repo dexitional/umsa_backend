@@ -441,14 +441,14 @@ class FmsController {
         });
     }
     lateCharge(req, res) {
-        var _a, _b, _c;
+        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { studentId } = req.body;
                 const st = yield fms.student.findUnique({ where: { id: studentId } });
-                const charge = yield fms.transtype.findFirst({ where: { id: 8 }, include: { servicefee: true } });
+                const charge = yield fms.transtype.findFirst({ where: { id: 8 } });
                 if (st && charge) {
-                    const fine = (st === null || st === void 0 ? void 0 : st.entryGroup) == 'GH' ? (_a = charge === null || charge === void 0 ? void 0 : charge.servicefee[0]) === null || _a === void 0 ? void 0 : _a.amountInGhc : (_b = charge === null || charge === void 0 ? void 0 : charge.servicefee[0]) === null || _b === void 0 ? void 0 : _b.amountInUsd;
+                    const fine = (st === null || st === void 0 ? void 0 : st.entryGroup) == 'GH' ? charge === null || charge === void 0 ? void 0 : charge.amountInGhc : charge === null || charge === void 0 ? void 0 : charge.amountInUsd;
                     const resp = yield fms.charge.create({
                         data: Object.assign(Object.assign({ title: `LATE REGISTRATION FINE`, type: 'FINE', currency: st.entryGroup == 'GH' ? 'GHC' : 'USD', amount: parseFloat(fine), posted: true }, studentId && ({ student: { connect: { id: studentId } } })), { studentAccount: {
                                 createMany: {
@@ -458,7 +458,7 @@ class FmsController {
                     });
                     // Retire Accounts
                     const bal = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
-                    yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_c = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _c === void 0 ? void 0 : _c.amount } });
+                    yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_a = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _a === void 0 ? void 0 : _a.amount } });
                     // Return Response
                     res.status(200).json(resp);
                 }
@@ -844,13 +844,11 @@ class FmsController {
             // LOAD_API_SERVICES
             try {
                 const resp = yield fms.transtype.findMany({
-                    where: { status: true },
-                    include: { servicefee: { select: { amountInGhc: true, amountInUsd: true }, where: { status: true } } }
+                    where: { status: true, visibility: 'PUBLIC' },
                 });
                 if (resp === null || resp === void 0 ? void 0 : resp.length) {
                     const data = resp === null || resp === void 0 ? void 0 : resp.map((row) => {
-                        var _a, _b;
-                        return ({ serviceId: row.id, serviceName: row.title, serviceChargeInGHC: ((_a = row.servicefee[0]) === null || _a === void 0 ? void 0 : _a.amountInGhc) || 0, serviceChargeInUSD: ((_b = row.servicefee[0]) === null || _b === void 0 ? void 0 : _b.amountInUsd) || 0 });
+                        return ({ serviceId: row.id, serviceName: row.title, serviceChargeInGHC: row.amountInGhc || 0, serviceChargeInUSD: row.amountInUsd || 0 });
                     });
                     res.status(200).json({ success: true, data });
                 }
@@ -889,15 +887,15 @@ class FmsController {
                             ft = st === null || st === void 0 ? void 0 : st.accountNet;
                         }
                         else if ([4, 8].includes(type)) { /* Graduation, Late Fine  Charges */
-                            const ac = yield fms.servicefee.findUnique({ where: { transtypeId: Number(type) } });
+                            const ac = yield fms.transtype.findUnique({ where: { id: Number(type) } });
                             if (ac)
-                                ft = st.entryGroup == 'INT' ? ac.amountInUsd : ac.amountInGhc;
+                                ft = (st === null || st === void 0 ? void 0 : st.entryGroup) == 'INT' ? ((ac === null || ac === void 0 ? void 0 : ac.amountInUsd) || 0) : ((ac === null || ac === void 0 ? void 0 : ac.amountInGhc) || 0);
                         }
                         else if (type == 3) { /* Resit Charges */
                             const rs = yield fms.resit.count({ where: { paid: false, indexno: st === null || st === void 0 ? void 0 : st.indexno } });
-                            const ac = yield fms.servicefee.findUnique({ where: { transtypeId: Number(type) } });
+                            const ac = yield fms.transtype.findUnique({ where: { id: Number(type) } });
                             if (ac && rs)
-                                ft = st.entryGroup == 'INT' ? (rs === null || rs === void 0 ? void 0 : rs.count) * ac.amountInUsd : (rs === null || rs === void 0 ? void 0 : rs.count) * ac.amountInGhc;
+                                ft = st.entryGroup == 'INT' ? (rs === null || rs === void 0 ? void 0 : rs.count) * (ac.amountInUsd || 0) : (rs === null || rs === void 0 ? void 0 : rs.count) * (ac.amountInGhc || 0);
                         }
                         // Return Information
                         return res.status(200).json({ success: true, data: Object.assign(Object.assign({}, dt), { serviceCharge: ft }) });
@@ -1019,7 +1017,7 @@ class FmsController {
                             /* For Resit Payments */
                             if (serviceId == 3) {
                                 // Retire Number of Resit Papers
-                                const resit_charge = yield fms.servicefee.findUnique({ where: { transtypeId: Number(serviceId) } });
+                                const resit_charge = yield fms.transtype.findUnique({ where: { id: Number(serviceId) } });
                                 const pay_count = Math.floor(((st === null || st === void 0 ? void 0 : st.entryGroup) == 'INT' ? resit_charge === null || resit_charge === void 0 ? void 0 : resit_charge.amountInUsd : resit_charge === null || resit_charge === void 0 ? void 0 : resit_charge.amountInGhc) % amountPaid);
                                 const resits = yield fms.resit.findMany({ where: { indexno: st === null || st === void 0 ? void 0 : st.indexno }, take: pay_count });
                                 const filters = resits === null || resits === void 0 ? void 0 : resits.map((r) => ({ indexno: r.indexno }));
@@ -1214,8 +1212,8 @@ class FmsController {
                         }
                     };
                 const resp = yield fms.$transaction([
-                    fms.servicefee.count(Object.assign({}, (searchCondition))),
-                    fms.servicefee.findMany(Object.assign(Object.assign({}, (searchCondition)), { include: { transtype: true }, skip: offset, take: Number(pageSize) }))
+                    fms.transtype.count(Object.assign({}, (searchCondition))),
+                    fms.transtype.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize) }))
                 ]);
                 if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
                     res.status(200).json({
@@ -1237,8 +1235,8 @@ class FmsController {
     fetchService(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const resp = yield fms.servicefee.findUnique({
-                    where: { transtypeId: Number(req.params.id) }
+                const resp = yield fms.transtype.findUnique({
+                    where: { id: Number(req.params.id) }
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -1256,11 +1254,9 @@ class FmsController {
     postService(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const { transtypeId } = req.body;
                 delete req.body.transtypeId;
-                delete req.body.transtypeId;
-                const resp = yield fms.servicefee.create({
-                    data: Object.assign(Object.assign({}, req.body), transtypeId && ({ transtype: { connect: { id: transtypeId } } }))
+                const resp = yield fms.transtype.create({
+                    data: Object.assign({}, req.body)
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -1278,14 +1274,12 @@ class FmsController {
     updateService(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const { transtypeId } = req.body;
                 delete req.body.transtypeId;
-                delete req.body.transtypeId;
-                const resp = yield fms.servicefee.update({
+                const resp = yield fms.transtype.update({
                     where: {
-                        transtypeId: Number(req.params.id)
+                        id: Number(req.params.id)
                     },
-                    data: Object.assign(Object.assign({}, req.body), transtypeId && ({ transtype: { connect: { id: transtypeId } } }))
+                    data: Object.assign({}, req.body)
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -1303,7 +1297,7 @@ class FmsController {
     deleteService(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const resp = yield fms.servicefee.delete({ where: { transtypeId: Number(req.params.id) } });
+                const resp = yield fms.transtype.delete({ where: { id: Number(req.params.id) } });
                 if (resp) {
                     res.status(200).json(resp);
                 }

@@ -582,11 +582,14 @@ class AmsController {
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
-            let searchCondition = {};
+            let searchCondition = {
+                voucher: { admission: { default: true } },
+            };
             try {
                 if (keyword)
                     searchCondition = {
                         where: {
+                            voucher: { admission: { default: true } },
                             OR: [
                                 { serial: { contains: keyword } },
                                 { stage: { title: { contains: keyword } } },
@@ -776,7 +779,9 @@ class AmsController {
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
-            let searchCondition = {};
+            let searchCondition = {
+                admission: { default: true },
+            };
             try {
                 if (keyword)
                     searchCondition = {
@@ -1319,14 +1324,16 @@ class AmsController {
                 delete req.body.serial;
                 delete req.body.applyTypeId;
                 delete req.body.categoryId;
+                // Admission Session
+                const voucher = yield ams.voucher.findFirst({ where: { serial } });
                 // Application Form Schema for Chosen Category
                 const form = yield ams.amsForm.findFirst({ where: { categoryId } });
                 if (form)
                     req.body.meta = form === null || form === void 0 ? void 0 : form.meta;
                 const resp = yield ams.applicant.upsert({
                     where: { serial },
-                    create: Object.assign(Object.assign(Object.assign(Object.assign({}, req.body), { serial }), stageId && ({ stage: { connect: { id: stageId } } })), applyTypeId && ({ applyType: { connect: { id: applyTypeId } } })),
-                    update: Object.assign(Object.assign(Object.assign({}, req.body), stageId && ({ stage: { connect: { id: stageId } } })), applyTypeId && ({ applyType: { connect: { id: applyTypeId } } }))
+                    create: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, req.body), { serial }), stageId && ({ stage: { connect: { id: stageId } } })), applyTypeId && ({ applyType: { connect: { id: applyTypeId } } })), voucher && ({ admission: { connect: { id: voucher === null || voucher === void 0 ? void 0 : voucher.admissionId } } })),
+                    update: Object.assign(Object.assign(Object.assign(Object.assign({}, req.body), stageId && ({ stage: { connect: { id: stageId } } })), applyTypeId && ({ applyType: { connect: { id: applyTypeId } } })), voucher && ({ admission: { connect: { id: voucher === null || voucher === void 0 ? void 0 : voucher.admissionId } } }))
                 });
                 if (resp) {
                     res.status(200).json(resp);

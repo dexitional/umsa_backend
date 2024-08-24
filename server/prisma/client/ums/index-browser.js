@@ -925,6 +925,7 @@ exports.Prisma.FresherScalarFieldEnum = {
 
 exports.Prisma.ApplicantScalarFieldEnum = {
   serial: 'serial',
+  admissionId: 'admissionId',
   stageId: 'stageId',
   applyTypeId: 'applyTypeId',
   choiceId: 'choiceId',

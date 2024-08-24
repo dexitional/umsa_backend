@@ -559,12 +559,12 @@ export default class AmsController {
       const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
       const offset = (page - 1) * pageSize;
       let searchCondition:any = { 
-         voucher:{ admission: { default: true }},
+         admission: { default: true },
       }
       try {
          if(keyword) searchCondition = { 
             where: { 
-               voucher:{ admission: { default: true }},
+               admission: { default: true },
                OR: [
                   { serial: { contains: keyword } },
                   { stage: { title: { contains: keyword }} },
@@ -1300,6 +1300,8 @@ export default class AmsController {
          delete req.body.stageId; delete req.body.serial;
          delete req.body.applyTypeId; 
          delete req.body.categoryId; 
+         // Admission Session
+         const voucher = await ams.voucher.findFirst({ where: { serial }})
          // Application Form Schema for Chosen Category
          const form = await ams.amsForm.findFirst({ where: { categoryId }})
          if(form) req.body.meta = form?.meta
@@ -1311,11 +1313,13 @@ export default class AmsController {
                serial, 
                ... stageId && ({ stage: { connect: { id: stageId }}}),
                ... applyTypeId && ({ applyType: { connect: { id: applyTypeId }}}),
+               ... voucher && ({ admission: { connect: { id: voucher?.admissionId }}}),
             },
             update: {
                ...req.body, 
                ... stageId && ({ stage: { connect: { id: stageId }}}),
                ... applyTypeId && ({ applyType: { connect: { id: applyTypeId }}}),
+               ... voucher && ({ admission: { connect: { id: voucher?.admissionId }}}),
             }
          })
          

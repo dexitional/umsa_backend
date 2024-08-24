@@ -559,7 +559,9 @@ export default class AmsController {
       const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
       const offset = (page - 1) * pageSize;
       let searchCondition:any = { 
-         admission: { default: true },
+        where:{ 
+         admission: { default: true } 
+        }
       }
       try {
          if(keyword) searchCondition = { 
@@ -572,6 +574,7 @@ export default class AmsController {
                ],
             }
          }
+         
          const resp = await ams.$transaction([
             ams.applicant.count({
                ...(searchCondition),
@@ -751,7 +754,9 @@ export default class AmsController {
       const { page = 1, pageSize = 9, keyword = '' }: any = req.query;
       const offset = (page - 1) * pageSize;
       let searchCondition:any = { 
-         admission: { default: true },
+         where: { 
+            admission: { default: true } 
+         }
       }
       try {
          if(keyword) searchCondition = { 

@@ -583,13 +583,15 @@ class AmsController {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
             let searchCondition = {
-                voucher: { admission: { default: true } },
+                where: {
+                    admission: { default: true }
+                }
             };
             try {
                 if (keyword)
                     searchCondition = {
                         where: {
-                            voucher: { admission: { default: true } },
+                            admission: { default: true },
                             OR: [
                                 { serial: { contains: keyword } },
                                 { stage: { title: { contains: keyword } } },
@@ -780,7 +782,9 @@ class AmsController {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
             let searchCondition = {
-                admission: { default: true },
+                where: {
+                    admission: { default: true }
+                }
             };
             try {
                 if (keyword)

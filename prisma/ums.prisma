@@ -1349,9 +1349,10 @@ model voucher {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  category  category?  @relation(fields: [categoryId], references: [id])
-  admission admission? @relation(fields: [admissionId], references: [id])
-  vendor    vendor?    @relation(fields: [vendorId], references: [id])
+  category  category?   @relation(fields: [categoryId], references: [id])
+  admission admission?  @relation(fields: [admissionId], references: [id])
+  vendor    vendor?     @relation(fields: [vendorId], references: [id])
+  applicant applicant[]
 
   @@map("ams_voucher")
 }
@@ -1468,6 +1469,7 @@ model applicant {
   applyType applyType?   @relation(fields: [applyTypeId], references: [id])
   choice    stepChoice?  @relation(fields: [choiceId], references: [id])
   profile   stepProfile? @relation(fields: [profileId], references: [serial])
+  voucher   voucher?     @relation(fields: [serial], references: [serial])
 
   @@map("ams_applicant")
 }

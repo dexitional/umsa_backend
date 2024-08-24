@@ -559,12 +559,12 @@ export default class AmsController {
       const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
       const offset = (page - 1) * pageSize;
       let searchCondition:any = { 
-         admission: { default: true }
+         voucher:{ admission: { default: true }},
       }
       try {
          if(keyword) searchCondition = { 
             where: { 
-               admission: { default: true },
+               voucher:{ admission: { default: true }},
                OR: [
                   { serial: { contains: keyword } },
                   { stage: { title: { contains: keyword }} },

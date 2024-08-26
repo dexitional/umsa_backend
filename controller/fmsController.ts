@@ -910,7 +910,6 @@ export default class FmsController {
    async payService(req: Request,res: Response) {
       try {
         
-         console.log("From Bank: ", req.body)
          const api = req.query.api;
          const cl:any = await fms.vendor.findFirst();
          let { serviceId, amountPaid, currency, studentId, refNote, transRef, buyerName, buyerPhone, formId, sessionId } = req.body;
@@ -934,7 +933,7 @@ export default class FmsController {
            // Create Transaction
            if(!tr){
                const pr = await fms.amsPrice.findUnique({ where: { id: formId } });
-               const vc:any = await fms.voucher.findFirst({ where: { admissionId: sessionId, vendorId: cl?.id, categoryId: pr?.categoryId, sellType: pr?.sellType } });
+               const vc:any = await fms.voucher.findFirst({ where: { admissionId: sessionId, vendorId: cl?.id, categoryId: pr?.categoryId, sellType: pr?.sellType, soldAt: null } });
                if(!vc) return res.status(200).json({ success: false, data: null, msg: `Voucher quota exhausted` });
                // Send SMS to Buyer
                const msg = `Hi! AUCC Voucher info are, Serial: ${vc?.serial} Pin: ${vc?.pin} Goto https://portal.aucc.edu.gh to apply!`;

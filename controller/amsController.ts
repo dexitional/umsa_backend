@@ -558,14 +558,21 @@ export default class AmsController {
    async fetchApplicants(req: Request,res: Response) {
       const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
       const offset = (page - 1) * pageSize;
-      let searchCondition:any = { 
-        where:{ 
-         admission: { default: true } 
-        }
-      }
+      
       try {
+         const sorted = await ams.sortedApplicant.findMany({ where: { admission: { default: true }}});
+         const ids = sorted.map((r:any) => (r.serial));
+         
+         let searchCondition:any = { 
+            where:{ 
+             serial: { notIn: ids },
+             admission: { default: true } 
+            }
+          }
+
          if(keyword) searchCondition = { 
             where: { 
+               serial: { notIn: ids },
                admission: { default: true },
                OR: [
                   { serial: { contains: keyword } },
@@ -753,14 +760,21 @@ export default class AmsController {
    async fetchShortlists(req: Request,res: Response) {
       const { page = 1, pageSize = 9, keyword = '' }: any = req.query;
       const offset = (page - 1) * pageSize;
-      let searchCondition:any = { 
-         where: { 
-            admission: { default: true } 
-         }
-      }
+      
       try {
+         const admitted = await ams.fresher.findMany({ where: { admission: { default: true }}});
+         const ids = admitted.map((r:any) => (r.serial));
+         
+         let searchCondition:any = { 
+            where: { 
+               serial: { notIn: ids },
+               admission: { default: true } 
+            }
+         }
+
          if(keyword) searchCondition = { 
             where: { 
+               serial: { notIn: ids },
                admission: { default: true },
                OR: [
                   { serial: { contains: keyword } },

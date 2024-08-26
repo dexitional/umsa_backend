@@ -928,7 +928,6 @@ class FmsController {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                console.log("From Bank: ", req.body);
                 const api = req.query.api;
                 const cl = yield fms.vendor.findFirst();
                 let { serviceId, amountPaid, currency, studentId, refNote, transRef, buyerName, buyerPhone, formId, sessionId } = req.body;
@@ -951,7 +950,7 @@ class FmsController {
                     // Create Transaction
                     if (!tr) {
                         const pr = yield fms.amsPrice.findUnique({ where: { id: formId } });
-                        const vc = yield fms.voucher.findFirst({ where: { admissionId: sessionId, vendorId: cl === null || cl === void 0 ? void 0 : cl.id, categoryId: pr === null || pr === void 0 ? void 0 : pr.categoryId, sellType: pr === null || pr === void 0 ? void 0 : pr.sellType } });
+                        const vc = yield fms.voucher.findFirst({ where: { admissionId: sessionId, vendorId: cl === null || cl === void 0 ? void 0 : cl.id, categoryId: pr === null || pr === void 0 ? void 0 : pr.categoryId, sellType: pr === null || pr === void 0 ? void 0 : pr.sellType, soldAt: null } });
                         if (!vc)
                             return res.status(200).json({ success: false, data: null, msg: `Voucher quota exhausted` });
                         // Send SMS to Buyer

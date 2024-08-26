@@ -419,6 +419,7 @@ exports.Prisma.ActivityDeferScalarFieldEnum = {
   statusBy: 'statusBy',
   start: 'start',
   end: 'end',
+  createdBy: 'createdBy',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -1452,7 +1453,8 @@ exports.courseType = exports.$Enums.courseType = {
 exports.deferStatus = exports.$Enums.deferStatus = {
   PENDED: 'PENDED',
   APPROVED: 'APPROVED',
-  DECLINED: 'DECLINED'
+  DECLINED: 'DECLINED',
+  RESUMED: 'RESUMED'
 };
 
 exports.backlogType = exports.$Enums.backlogType = {

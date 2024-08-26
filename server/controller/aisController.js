@@ -293,7 +293,7 @@ class AisController {
         });
     }
     fetchStudentTranscript(req, res) {
-        var _a, _b, _c;
+        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const st = yield ais.student.findFirst({
@@ -315,19 +315,23 @@ class AisController {
                     where: { indexno: st === null || st === void 0 ? void 0 : st.indexno },
                     include: {
                         //student: true,
-                        //student: { select: { fname: true, mname: true, id: true, program: { select: { longName: true } } } },
-                        scheme: { select: { gradeMeta: true, } },
+                        student: { select: { indexno: true, fname: true, mname: true, lname: true, id: true, program: { select: { longName: true, shortName: true } } } },
+                        scheme: { select: { gradeMeta: true, classMeta: true } },
                         session: { select: { title: true, } },
                         course: { select: { title: true } },
                     },
                     orderBy: { session: { createdAt: 'asc' } }
                 });
+                console.log("ASSESSMENT: ", resp);
+                console.log("STUDENTS: ", st);
                 if (resp) {
+                    // Class Awards
                     var mdata = new Map();
                     for (const sv of resp) {
                         const index = (_b = (_a = sv === null || sv === void 0 ? void 0 : sv.session) === null || _a === void 0 ? void 0 : _a.title) !== null && _b !== void 0 ? _b : 'none';
                         const grades = (_c = sv.scheme) === null || _c === void 0 ? void 0 : _c.gradeMeta;
-                        const zd = Object.assign(Object.assign({}, sv), { grade: yield (0, helper_1.getGrade)(sv.totalScore, grades), gradepoint: yield (0, helper_1.getGradePoint)(sv.totalScore, grades) });
+                        const classes = (_d = sv.scheme) === null || _d === void 0 ? void 0 : _d.classMeta;
+                        const zd = Object.assign(Object.assign({}, sv), { grade: yield (0, helper_1.getGrade)(sv.totalScore, grades), gradepoint: yield (0, helper_1.getGradePoint)(sv.totalScore, grades), classes });
                         // Data By Courses
                         if (mdata.has(index)) {
                             mdata.set(index, [...mdata.get(index), Object.assign({}, zd)]);
@@ -336,10 +340,10 @@ class AisController {
                             mdata.set(index, [Object.assign({}, zd)]);
                         }
                     }
-                    res.status(200).json(Array.from(mdata));
+                    return res.status(200).json(Array.from(mdata));
                 }
                 else {
-                    res.status(202).json({ message: `no record found` });
+                    return res.status(202).json({ message: `no record found` });
                 }
             }
             catch (error) {
@@ -1755,7 +1759,7 @@ class AisController {
             }
         });
     }
-    /* programs */
+    /* Majors */
     fetchMajorList(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
@@ -2125,39 +2129,43 @@ class AisController {
     }
     /* Progression */
     fetchProgressions(req, res) {
-        var _a, _b, _c;
+        var _a, _b;
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 6, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
-            let searchCondition = {};
+            let searchCondition = {
+                where: { session: { default: true } }
+            };
             try {
                 if (keyword)
                     searchCondition = {
                         where: {
+                            session: { default: true },
                             OR: [
-                                { title: { contains: keyword } },
-                                { id: { contains: keyword } },
+                                { indexno: { contains: keyword } },
+                                { session: { title: { contains: keyword } } },
+                                { student: { id: { contains: keyword } } },
+                                { student: { fname: { contains: keyword } } },
+                                { student: { lname: { contains: keyword } } },
                             ],
-                        },
-                        include: {
-                            student: true,
-                            session: true
-                        },
+                        }
                     };
                 const resp = yield ais.$transaction([
                     ais.activityProgress.count(Object.assign({}, (searchCondition))),
-                    ais.activityProgress.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize) }))
+                    ais.activityProgress.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), include: {
+                            student: { include: { program: true } },
+                            session: true
+                        } }))
                 ]);
-                if (resp && ((_a = resp[1]) === null || _a === void 0 ? void 0 : _a.length)) {
-                    res.status(200).json({
-                        totalPages: (_b = Math.ceil(resp[0] / pageSize)) !== null && _b !== void 0 ? _b : 0,
-                        totalData: (_c = resp[1]) === null || _c === void 0 ? void 0 : _c.length,
-                        data: resp[1],
-                    });
-                }
-                else {
-                    res.status(202).json({ message: `no records found` });
-                }
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                // } else {
+                //    res.status(202).json({ message: `no records found` })
+                // }
             }
             catch (error) {
                 console.log(error);
@@ -2169,9 +2177,7 @@ class AisController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const resp = yield ais.activityProgress.findUnique({
-                    where: {
-                        id: req.params.id
-                    },
+                    where: { id: req.params.id },
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -2187,11 +2193,83 @@ class AisController {
         });
     }
     postProgression(req, res) {
+        var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                const { indexno } = req.body;
+                delete req.body.indexno;
+                // Check If Student Exist with Index number
+                const st = yield ais.student.findFirst({ where: { indexno }, include: { program: { select: { semesterTotal: true } } } });
+                if (!st)
+                    throw ("No Student Index Number !");
+                // Fetch Active Session for Student - AUCC Only
+                const session = ((st.semesterNum <= 2 && st.entrySemesterNum == 1) || (st.semesterNum <= 4 && st.entrySemesterNum == 3)) && ['01', '1'].includes((0, moment_1.default)(st.entryDate).format("MM"))
+                    ? yield ais.session.findFirst({ where: { default: true, tag: 'SUB' } })
+                    : yield ais.session.findFirst({ where: { default: true, tag: 'MAIN' } });
+                // Fetch Active Session for Student - MLK & Others Only
+                // const session = await ais.sesssion.findFirst({ where: { default: true }})
+                // Check If Progressed
+                const pg = yield ais.activityProgress.findFirst({ where: { indexno, sessionId: session === null || session === void 0 ? void 0 : session.id } });
+                if (pg)
+                    throw ("Student already progressed !");
+                // Save Progression Data
                 const resp = yield ais.activityProgress.create({
-                    data: Object.assign({}, req.body),
+                    data: Object.assign(Object.assign({ semesterNum: (st.semesterNum + 1 > ((_a = st.program) === null || _a === void 0 ? void 0 : _a.semesterTotal) ? 0 : st.semesterNum + 1), status: true }, session && ({ session: { connect: { id: session === null || session === void 0 ? void 0 : session.id } } })), indexno && ({ student: { connect: { indexno } } }))
                 });
+                if (resp) {
+                    // Update Student SemesterNum & CompleteStatus
+                    yield ais.student.update({
+                        where: { id: st === null || st === void 0 ? void 0 : st.id },
+                        data: {
+                            semesterNum: (st.semesterNum + 1 > ((_b = st.program) === null || _b === void 0 ? void 0 : _b.semesterTotal) ? 0 : st.semesterNum + 1),
+                            completeStatus: (st.semesterNum + 1 > ((_c = st.program) === null || _c === void 0 ? void 0 : _c.semesterTotal) ? true : false)
+                        }
+                    });
+                    // Return Response
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    postAllProgression(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const { sessionId } = req.body;
+                delete req.body.sessionId;
+                // Fetch Active Session for Student
+                const session = yield ais.session.findFirst({ where: { id: sessionId } });
+                // AUCC only
+                const students = session.tag == 'SUB'
+                    ? yield ais.$queryRaw `select s.id,indexno,semesterNum,p.semesterTotal from ais_student s left join ais_program p on s.programId = p.id where (((semesterNum <= 2 and entrySemesterNum = 1) or (semesterNum <= 4 and entrySemesterNum = 3)) and date_format(entryDate,'%m') = '01') and completeStatus = 0 and deferStatus = 0 and indexno is not NULL`
+                    : yield ais.$queryRaw `select s.id,indexno,semesterNum,p.semesterTotal from ais_student s left join ais_program p on s.programId = p.id where ((((semesterNum > 2 and entrySemesterNum = 1) or (semesterNum > 4 and entrySemesterNum = 3)) and date_format(entryDate,'%m') = '01') or (date_format(entryDate,'%m') <> '01')) and completeStatus = 0 and deferStatus = 0 and indexno is not NULL`;
+                // MLK & Others only
+                // const students = await ais.$queryRaw`select indexno,semesterNum from ais_student where completeStatus = 0 and deferStatus = 0 and indexno is not NULL`;
+                const resp = yield Promise.all(students.map((st) => __awaiter(this, void 0, void 0, function* () {
+                    console.log("st: ", st);
+                    // Check If Progressed
+                    const pg = yield ais.activityProgress.findFirst({ where: { indexno: st === null || st === void 0 ? void 0 : st.indexno, sessionId: session === null || session === void 0 ? void 0 : session.id } });
+                    if (pg)
+                        return null;
+                    // Update Student SemesterNum & CompleteStatus
+                    yield ais.student.update({
+                        where: { id: st === null || st === void 0 ? void 0 : st.id },
+                        data: {
+                            semesterNum: ((st === null || st === void 0 ? void 0 : st.semesterNum) + 1 > (st === null || st === void 0 ? void 0 : st.semesterTotal) ? 0 : (st === null || st === void 0 ? void 0 : st.semesterNum) + 1),
+                            completeStatus: ((st === null || st === void 0 ? void 0 : st.semesterNum) + 1 > (st === null || st === void 0 ? void 0 : st.semesterTotal) ? true : false)
+                        }
+                    });
+                    // Return Response
+                    return ais.activityProgress.create({
+                        data: Object.assign({ student: { connect: { indexno: st.indexno } }, semesterNum: st.semesterNum + 1, status: true }, session && ({ session: { connect: { id: session === null || session === void 0 ? void 0 : session.id } } }))
+                    });
+                })));
                 if (resp) {
                     res.status(200).json(resp);
                 }
@@ -3079,6 +3157,153 @@ class AisController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const resp = yield ais.activityBacklog.delete({
+                    where: { id: req.params.id }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Deferments */
+    fetchDeferments(req, res) {
+        var _a, _b;
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, pageSize = 9, keyword = '' } = req.query;
+            const offset = (page - 1) * pageSize;
+            let searchCondition = {};
+            try {
+                if (keyword)
+                    searchCondition = {
+                        where: {
+                            OR: [
+                                { student: { id: { contains: keyword } } },
+                                { student: { indexno: { contains: keyword } } },
+                                { student: { fname: { contains: keyword } } },
+                                { student: { lname: { contains: keyword } } },
+                                { session: { title: { contains: keyword } } },
+                            ],
+                        }
+                    };
+                const resp = yield ais.$transaction([
+                    ais.activityDefer.count(Object.assign({}, (searchCondition))),
+                    ais.activityDefer.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), include: {
+                            // _count: {
+                            //    select: { program: true }
+                            // }
+                            student: true,
+                            session: true
+                        } }))
+                ]);
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchDefermentList(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.activityDefer.findMany({
+                    where: { status: true },
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchDeferment(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.activityDefer.findUnique({
+                    where: {
+                        id: req.params.id
+                    },
+                    include: { program: true }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    postDeferment(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.activityDefer.create({
+                    data: Object.assign({}, req.body),
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    updateDeferment(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.activityDefer.update({
+                    where: {
+                        id: req.params.id
+                    },
+                    data: Object.assign({}, req.body)
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    deleteDeferment(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.activityDefer.delete({
                     where: { id: req.params.id }
                 });
                 if (resp) {

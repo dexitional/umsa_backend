@@ -582,15 +582,19 @@ class AmsController {
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
-            let searchCondition = {
-                where: {
-                    admission: { default: true }
-                }
-            };
             try {
+                const sorted = yield ams.sortedApplicant.findMany({ where: { admission: { default: true } } });
+                const ids = sorted.map((r) => (r.serial));
+                let searchCondition = {
+                    where: {
+                        serial: { notIn: ids },
+                        admission: { default: true }
+                    }
+                };
                 if (keyword)
                     searchCondition = {
                         where: {
+                            serial: { notIn: ids },
                             admission: { default: true },
                             OR: [
                                 { serial: { contains: keyword } },
@@ -781,15 +785,19 @@ class AmsController {
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
-            let searchCondition = {
-                where: {
-                    admission: { default: true }
-                }
-            };
             try {
+                const admitted = yield ams.fresher.findMany({ where: { admission: { default: true } } });
+                const ids = admitted.map((r) => (r.serial));
+                let searchCondition = {
+                    where: {
+                        serial: { notIn: ids },
+                        admission: { default: true }
+                    }
+                };
                 if (keyword)
                     searchCondition = {
                         where: {
+                            serial: { notIn: ids },
                             admission: { default: true },
                             OR: [
                                 { serial: { contains: keyword } },

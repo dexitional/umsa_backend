@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express'
+import { NextFunction, Request, Response } from 'express'
 
 export const getGrade = (num: any,grades: any) => {
     if(num == null) return 'I'
@@ -9,10 +9,10 @@ export const getGrade = (num: any,grades: any) => {
 }
 
 export const getGradePoint = (num: any,grades: any) => {
-    if(num == null) return 'I'
+    if(num == null) return 0
     num = parseFloat(num)
     const vs = grades && grades.find((row: any) => parseFloat(row.min) <= parseFloat(num) && parseFloat(num) <= parseFloat(row.max))
-    return (vs && vs.gradepoint) || 'I';
+    return (vs && vs.gradepoint) || 0;
 }
 
 export const getBillCodePrisma = (semesterNum: number,) => {

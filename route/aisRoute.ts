@@ -33,6 +33,7 @@ class AisRoute {
       this.router.get('/students/:id/transcript', [verifyToken], this.controller.fetchStudentTranscript);
       this.router.get('/students/:id/finance', [verifyToken], this.controller.fetchStudentFinance);
       this.router.get('/students/:id/activity', [verifyToken], this.controller.fetchStudentActivity);
+      this.router.post('/students/progress', [verifyToken], this.controller.postProgression);
       this.router.post('/students/stage', [verifyToken], this.controller.stageStudent);
       this.router.post('/students/reset', [verifyToken], this.controller.resetStudent);
       this.router.post('/students/photo', [verifyToken], this.controller.changePhoto);
@@ -114,10 +115,52 @@ class AisRoute {
        /* Progression */
        this.router.get('/progression', [verifyToken], this.controller.fetchProgressions);
        this.router.get('/progression/:id', [verifyToken], this.controller.fetchProgression);
-       this.router.post('/progression', [verifyToken], this.controller.postProgression);
-       this.router.patch('/progression/:id', [verifyToken], this.controller.updateProgression);
-       this.router.delete('/progression/:id', [verifyToken], this.controller.deleteProgression);
+       this.router.post('/progression', [verifyToken], this.controller.postAllProgression);
+       this.router.post('/progression/student', [verifyToken], this.controller.postProgression);
+      
+       /* Deferment */
+       this.router.get('/deferments', [verifyToken], this.controller.fetchDeferments);
+       this.router.get('/deferments/list', [verifyToken], this.controller.fetchDefermentList);
+       this.router.get('/deferments/:id', [verifyToken], this.controller.fetchDeferment);
+       this.router.post('/deferments', [verifyToken], this.controller.postDeferment);
+       this.router.patch('/deferments/:id', [verifyToken], this.controller.updateDeferment);
+       this.router.delete('/deferments/:id', [verifyToken], this.controller.deleteDeferment);
+
+      /* Transwift */
+      this.router.get('/transwifts', [verifyToken], this.controller.fetchSchemes);
+      this.router.get('/transwifts/list', [verifyToken], this.controller.fetchSchemeList);
+      this.router.get('/transwifts/:id', [verifyToken], this.controller.fetchScheme);
+      this.router.post('/transwifts', [verifyToken], this.controller.postScheme);
+      this.router.patch('/transwifts/:id', [verifyToken], this.controller.updateScheme);
+      this.router.delete('/transwifts/:id', [verifyToken], this.controller.deleteScheme);
        
+      /* Circulars */
+      this.router.get('/circulars', [verifyToken], this.controller.fetchSchemes);
+      this.router.get('/circulars/list', [verifyToken], this.controller.fetchSchemeList);
+      this.router.get('/circulars/:id', [verifyToken], this.controller.fetchScheme);
+      this.router.post('/circulars', [verifyToken], this.controller.postScheme);
+      this.router.patch('/circulars/:id', [verifyToken], this.controller.updateScheme);
+      this.router.delete('/circulars/:id', [verifyToken], this.controller.deleteScheme);
+       
+      /* Resit */
+      this.router.get('/resits', [verifyToken], this.controller.fetchSchemes);
+      this.router.get('/resits/list', [verifyToken], this.controller.fetchSchemeList);
+      this.router.get('/resits/:id', [verifyToken], this.controller.fetchScheme);
+      this.router.post('/resits', [verifyToken], this.controller.postScheme);
+      this.router.patch('/resits/:id', [verifyToken], this.controller.updateScheme);
+      this.router.delete('/resits/:id', [verifyToken], this.controller.deleteScheme);
+        
+
+       /* Graduations */
+       this.router.get('/graduations', [verifyToken], this.controller.fetchSchemes);
+       this.router.get('/graduations/list', [verifyToken], this.controller.fetchSchemeList);
+       this.router.get('/graduations/:id', [verifyToken], this.controller.fetchScheme);
+       this.router.post('/graduations', [verifyToken], this.controller.postScheme);
+       this.router.patch('/graduations/:id', [verifyToken], this.controller.updateScheme);
+       this.router.delete('/graduations/:id', [verifyToken], this.controller.deleteScheme);
+         
+ 
+
        /* Staff */
        this.router.get('/staff', [verifyToken], this.controller.fetchStaffs);
        this.router.get('/staff/:id', [verifyToken], this.controller.fetchStaff);

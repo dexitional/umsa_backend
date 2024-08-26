@@ -75,6 +75,7 @@ enum deferStatus {
   PENDED
   APPROVED
   DECLINED
+  RESUMED
 }
 
 enum receiver {
@@ -698,6 +699,7 @@ model activityDefer {
   statusBy        String?
   start           DateTime?
   end             DateTime?
+  createdBy       String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 

@@ -1015,26 +1015,38 @@ export default class AmsController {
    async postMatriculant(req: Request,res: Response) {
          try {
          const { serial,programId,semesterNum,sessionMode } = req.body
-         const semcode = getBillCodePrisma(Number(semesterNum))
+         
          const sorted:any = await ams.sortedApplicant.findFirst({ where:{ serial }, include: { profile: true, admission:{ include: { session: true}} }})
          const { sellType, admission:{ id:admissionId, session:{ id:sessionId } }, categoryId, profile: { titleId,countryId,regionId,religionId,disabilityId,maritalId,fname,lname,mname,gender,dob,hometown,phone,email,residentAddress  } } = sorted ?? null;
+         // Bill Info
+         const semcode = getBillCodePrisma(Number(semesterNum))
          const bill:any = await ams.bill.findFirst({ where:{ programId,sessionId, type: countryId == '96b0a1d5-7899-4b9a-bcbe-7a72eee6572c' ? 'GH':'INT', OR: semcode }})
+         // Emergency & Guardian Info
          const guardian:any = await ams.stepGuardian.findFirst({ where:{ serial }})
          // Check email 
-         const emailUser = `${fname.trim().toLowerCase()}.${lname.trim().toLowerCase()}`;
-         const fetchEmail = await ams.student.findMany({ where: { instituteEmail:{ contains: emailUser }}})
+         let count = 1;
+         let isNew = true;
+         let uname = `${fname?.replaceAll(' ','')}.${lname}`.toLowerCase();
+         while(isNew){
+            const ck =  await ams.student.findFirst({ where: { instituteEmail: { startsWith: `${uname}${count > 1 ? count:''}` } }});
+            if(ck) count = count+1;
+            else isNew = false;
+         }
+         const instituteEmail =  `${uname}@${process.env.UMS_MAIL}`;
          // Data for Population
-         const instituteEmail = `${fname}.${lname}${fetchEmail.length ? fetchEmail.length+1 : '' }@${DOMAIN}`;
-         const username = serial; /* const username = instituteEmail; // AUCC */
+         const username = instituteEmail; // AUCC 
+         // const username = serial;  // MLK & Others
+         
          const password = pwdgen();
          const studentData = { id:serial,fname,mname,lname,gender,dob,semesterNum,hometown,phone,email,address:residentAddress,instituteEmail,guardianName:`${guardian?.fname} ${guardian?.mname && guardian?.mname+' '}${guardian?.lname}`, guardianPhone: guardian?.phone }
          const fresherData = { sellType, semesterNum, sessionMode, username, password }
-         // const ssoData = { tag:serial, username:instituteEmail, password:sha1(), } // AUCC 
-         const ssoData = { tag:serial, username, password:sha1(password) }  // Others
+         const ssoData = { tag:serial, username:instituteEmail, password:sha1(password), } // AUCC 
+         //const ssoData = { tag:serial, username, password:sha1(password) }  // MLK & Others
          
          // Populate Student Information
-         const student = await ams.student.create({
-            data:{
+         const resp = await ams.student.upsert({
+            where: { id: serial},
+            update: {
                ... studentData,
                ... programId && ({ program: { connect: { id: programId }}}),
                ... titleId && ({ title: { connect: { id: titleId }}}),
@@ -1043,35 +1055,56 @@ export default class AmsController {
                ... religionId && ({ religion: { connect: { id: religionId }}}),
                ... maritalId && ({ marital: { connect: { id: maritalId }}}),
                ... disabilityId && ({ disability: { connect: { id: disabilityId }}}),
-            } 
-         })
-         // Populate Fresher Information
-         const resp = await ams.fresher.create({
-            data: {
-               ... fresherData,
-               ... admissionId && ({ admission: { connect: { id: admissionId }}}),
+            },
+            create:{
+               ... studentData,
                ... programId && ({ program: { connect: { id: programId }}}),
-               ... bill && ({ bill: { connect: { id: bill?.id }}}),
-               ... sessionId && ({ session: { connect: { id: sessionId }}}),
-               ... categoryId && ({ category: { connect: { id: categoryId }}}),
-               ... serial && ({ student: { connect: { serial }}}),
-               ... student && ({ student: { connect: { id: student?.id }}}),
-            },
+               ... titleId && ({ title: { connect: { id: titleId }}}),
+               ... countryId && ({ country: { connect: { id: countryId }}}),
+               ... regionId && ({ region: { connect: { id: regionId }}}),
+               ... religionId && ({ religion: { connect: { id: religionId }}}),
+               ... maritalId && ({ marital: { connect: { id: maritalId }}}),
+               ... disabilityId && ({ disability: { connect: { id: disabilityId }}}),
+            }
          })
-         // Populate SSO Account
-         const sso = await ams.user.create({
-            data: {
-               ... ssoData,
-               group: { connect: { id: 1 }},
-            },
-         })
-         // Update Applicant Status 
-         const ups = await ams.sortedApplicant.update({
-            where: { serial },
-            data: { admitted: true },
-         })
-
+         
          if(resp){
+            // Populate SSO Account
+            await ams.user.upsert({
+               where: { tag: serial },
+               create: {
+                  ... ssoData,
+                  group: { connect: { id: 1 }},
+               },
+               update: {
+                  ... ssoData,
+                  group: { connect: { id: 1 }},
+               },
+            })
+            // Update Applicant Status 
+            await ams.sortedApplicant.update({
+               where: { serial },
+               data: { admitted: true },
+            })
+
+            // Populate Fresher Information
+            await ams.fresher.create({
+               data: {
+                  ... fresherData,
+                  ... admissionId && ({ admission: { connect: { id: admissionId }}}),
+                  ... programId && ({ program: { connect: { id: programId }}}),
+                  ... bill && ({ bill: { connect: { id: bill?.id }}}),
+                  ... sessionId && ({ session: { connect: { id: sessionId }}}),
+                  ... categoryId && ({ category: { connect: { id: categoryId }}}),
+                  ... serial && ({ student: { connect: { id: serial }}}),
+               },
+            })
+           
+            // Send Applicant Notification
+            const msg = `Congratulations! You have been granted an admission into AUCC, Your student portal access is Username: ${instituteEmail}, Password: ${password}`
+            sms(phone,msg);
+           
+            // Return Response
             res.status(200).json(resp)
          } else {
             res.status(204).json({ message: `no records found` })

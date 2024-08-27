@@ -1428,6 +1428,9 @@ class AisController {
     deleteRegistration(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                // const { data } =  req.body;
+                // if(data?.length){
+                // }
                 // Delete Courses Registration
                 const resp = yield ais.assessment.deleteMany({
                     where: {

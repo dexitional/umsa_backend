@@ -1382,6 +1382,10 @@ export default class AisController {
  
   async deleteRegistration(req: Request,res: Response) {
       try {
+         // const { data } =  req.body;
+         // if(data?.length){
+
+         // }
          // Delete Courses Registration
          const resp = await ais.assessment.deleteMany({
             where: {  

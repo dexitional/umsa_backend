@@ -936,9 +936,9 @@ export default class FmsController {
                const vc:any = await fms.voucher.findFirst({ where: { admissionId: sessionId, vendorId: cl?.id, categoryId: pr?.categoryId, sellType: pr?.sellType, soldAt: null } });
                if(!vc) return res.status(200).json({ success: false, data: null, msg: `Voucher quota exhausted` });
                // Send SMS to Buyer
-               const msg = `Hi! AUCC Voucher info are, Serial: ${vc?.serial} Pin: ${vc?.pin} Goto https://portal.aucc.edu.gh to apply!`;
-               //const send = await sms(buyerPhone, msg);
-               let send = { code: 1001 };
+               const msg = `Hi! Your AUCC Applicant Voucher info are SERIAL: ${vc?.serial}, PIN: ${vc?.pin} Goto https://portal.aucc.edu.gh to apply!`;
+               const send = await sms(buyerPhone, msg);
+               // let send = { code: 1001 };
                const ins = await fms.transaction.create({ 
                   data: {
                      ... data,

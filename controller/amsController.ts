@@ -1612,7 +1612,7 @@ export default class AmsController {
                data: { 
                   ...row, 
                   ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
-                  grades: { createMany: newGrades }
+                  grades: { create: newGrades }
                }
             })
          }))

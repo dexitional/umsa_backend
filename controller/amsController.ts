@@ -1616,7 +1616,8 @@ export default class AmsController {
             return await ams.stepResult.createMany({
                data: { 
                   ...row, 
-                  ...certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
+                  certCategoryId,
+                  // ...certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
                   grades: { create: newGrades }
                }
             })

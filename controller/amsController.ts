@@ -1528,7 +1528,7 @@ export default class AmsController {
             delete row?.certCategoryId; 
             
             return await ams.stepEducation.upsert({
-               where: { id: (id || '') },
+               where: { id: (id ?? '') },
                create: { 
                   ...row, 
                   ... instituteCategoryId && ({ instituteCategory: { connect: { id: instituteCategoryId }}}),
@@ -1594,17 +1594,25 @@ export default class AmsController {
                   ...subjectId && ({ subject: { connect: { id: subjectId }}}),
                })
             })
-            return await ams.stepResult.upsert({
-               where: { id: (id ?? '') },
-               create: { 
+            // return await ams.stepResult.upsert({
+            //    where: { id: (id ?? '') },
+            //    create: { 
+            //       ...row, 
+            //       ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
+            //       grades: { create: newGrades }
+            //    },
+            //    update: {
+            //       ...row, 
+            //       ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
+            //       grades: { create: newGrades }
+            //    }
+            // })
+            
+            return await ams.stepResult.createMany({
+               data: { 
                   ...row, 
                   ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
-                  grades: { create: newGrades }
-               },
-               update: {
-                  ...row, 
-                  ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
-                  grades: { create: newGrades }
+                  grades: { createMany: newGrades }
                }
             })
          }))
@@ -1689,7 +1697,7 @@ export default class AmsController {
             delete row?.documentCategoryId; delete row?.id;
           
             return await ams.stepDocument.upsert({
-               where: { id: (id || '') },
+               where: { id: (id ?? '') },
                create: { 
                   ...row, 
                   ... documentCategoryId && ({ documentCategory: { connect: { id: documentCategoryId }}}),

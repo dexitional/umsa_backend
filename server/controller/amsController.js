@@ -1509,7 +1509,7 @@ class AmsController {
                     row === null || row === void 0 ? true : delete row.id;
                     row === null || row === void 0 ? true : delete row.certCategoryId;
                     return yield ams.stepEducation.upsert({
-                        where: { id: (id || '') },
+                        where: { id: (id !== null && id !== void 0 ? id : '') },
                         create: Object.assign(Object.assign(Object.assign({}, row), instituteCategoryId && ({ instituteCategory: { connect: { id: instituteCategoryId } } })), certCategoryId && ({ certCategory: { connect: { id: certCategoryId } } })),
                         update: Object.assign(Object.assign(Object.assign({}, row), instituteCategoryId && ({ instituteCategory: { connect: { id: instituteCategoryId } } })), certCategoryId && ({ certCategory: { connect: { id: certCategoryId } } }))
                     });
@@ -1568,10 +1568,21 @@ class AmsController {
                         item === null || item === void 0 ? true : delete item.subjectId;
                         return (Object.assign(Object.assign(Object.assign(Object.assign({}, item), resultId && ({ result: { connect: { id: resultId } } })), gradeWeightId && ({ gradeWeight: { connect: { id: gradeWeightId } } })), subjectId && ({ subject: { connect: { id: subjectId } } })));
                     });
-                    return yield ams.stepResult.upsert({
-                        where: { id: (id || '') },
-                        create: Object.assign(Object.assign(Object.assign({}, row), certCategoryId && ({ certCategory: { connect: { id: certCategoryId } } })), { grades: { create: newGrades } }),
-                        update: Object.assign(Object.assign(Object.assign({}, row), certCategoryId && ({ certCategory: { connect: { id: certCategoryId } } })), { grades: { create: newGrades } })
+                    // return await ams.stepResult.upsert({
+                    //    where: { id: (id ?? '') },
+                    //    create: { 
+                    //       ...row, 
+                    //       ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
+                    //       grades: { create: newGrades }
+                    //    },
+                    //    update: {
+                    //       ...row, 
+                    //       ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
+                    //       grades: { create: newGrades }
+                    //    }
+                    // })
+                    return yield ams.stepResult.createMany({
+                        data: Object.assign(Object.assign(Object.assign({}, row), certCategoryId && ({ certCategory: { connect: { id: certCategoryId } } })), { grades: { createMany: newGrades } })
                     });
                 })));
                 if (resp) {
@@ -1663,7 +1674,7 @@ class AmsController {
                     row === null || row === void 0 ? true : delete row.documentCategoryId;
                     row === null || row === void 0 ? true : delete row.id;
                     return yield ams.stepDocument.upsert({
-                        where: { id: (id || '') },
+                        where: { id: (id !== null && id !== void 0 ? id : '') },
                         create: Object.assign(Object.assign({}, row), documentCategoryId && ({ documentCategory: { connect: { id: documentCategoryId } } })),
                         update: Object.assign(Object.assign({}, row), documentCategoryId && ({ documentCategory: { connect: { id: documentCategoryId } } }))
                     });

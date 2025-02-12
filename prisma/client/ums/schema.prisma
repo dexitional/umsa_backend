@@ -81,6 +81,7 @@ enum deferStatus {
 enum receiver {
   APPLICANT
   FRESHER
+  FINAL
   STUDENT
   UNDERGRAD
   POSTGRAD
@@ -515,9 +516,6 @@ model student {
   completeStatus    Boolean            @default(false)
   completeType      completeType?
   graduateStatus    Boolean            @default(false)
-  graduateId        String?
-  graduateCgpa      String?
-  graduateCertNo    String?
   instituteEmail    String?            @db.VarChar(350)
   instituteAffliate String?            @db.VarChar(350)
   flagPardon        Boolean            @default(false)
@@ -531,7 +529,6 @@ model student {
   disability  disability? @relation(fields: [disabilityId], references: [id])
   program     program?    @relation(fields: [programId], references: [id])
   major       major?      @relation(fields: [majorId], references: [id])
-  graduate    graduation? @relation(fields: [graduateId], references: [id])
 
   activityProgchange activityProgchange[]
   activityDefer      activityDefer[]
@@ -545,6 +542,7 @@ model student {
   assessment         assessment[]
   fresher            fresher[]
   marital            marital?             @relation(fields: [maritalId], references: [id])
+  graduate           graduate?
 
   @@map("ais_student")
 }
@@ -633,14 +631,15 @@ model structmeta {
 }
 
 model activityRegister {
-  id        String   @id @default(uuid())
-  sessionId String
-  indexno   String   @db.VarChar(50)
-  courses   Int
-  credits   Int
-  dump      Json?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid())
+  sessionId   String
+  indexno     String   @db.VarChar(50)
+  courses     Int
+  credits     Int
+  semesterNum Int
+  dump        Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   session session? @relation(fields: [sessionId], references: [id])
   student student? @relation(fields: [indexno], references: [indexno])
@@ -690,12 +689,11 @@ model activityProgchange {
 model activityDefer {
   id              String      @id @default(uuid())
   sessionId       String?
-  studentId       String
-  indexno         String      @db.VarChar(50)
+  indexno         String?      @db.VarChar(50)
   semesterNum     Int
   reason          String?     @db.VarChar(255)
-  durationInYears Int
-  status          deferStatus
+  durationInYears Int         @default(1)
+  status          deferStatus @default(PENDED)
   statusBy        String?
   start           DateTime?
   end             DateTime?
@@ -704,7 +702,7 @@ model activityDefer {
   updatedAt       DateTime    @updatedAt
 
   session session? @relation(fields: [sessionId], references: [id])
-  student student? @relation(fields: [studentId], references: [id])
+  student student?  @relation(fields: [indexno], references: [indexno])
 
   @@map("ais_activity_defer")
 }
@@ -824,44 +822,56 @@ model sheet {
 
 model transwift {
   id         String          @id @default(uuid())
-  studentId  String?
-  title      String          @db.VarChar(350)
-  type       serviceType
-  reference  String?         @db.VarChar(350)
+  studentId  String
+  transactId String          @unique
   applicant  String?         @db.VarChar(350)
   receipient String?         @db.Text
-  quantity   Int
-  mode       pickMode
+  quantity   Int             @default(0)
+  mode       pickMode        @default(PICKUP)
   version    transwiftType   @default(SOFTCOPY)
   status     transwiftStatus @default(PENDED)
   issuerId   String?
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
 
-  student student? @relation(fields: [studentId], references: [id])
-  issuer  staff?   @relation(fields: [issuerId], references: [staffNo])
+  student  student?     @relation(fields: [studentId], references: [id])
+  transact transaction? @relation(fields: [transactId], references: [id])
+  issuer   staff?       @relation(fields: [issuerId], references: [staffNo])
 
   @@map("ais_transwift")
 }
 
-model graduation {
-  id        String    @id @default(uuid())
-  title     String    @db.VarChar(350)
-  start     DateTime?
-  end       DateTime?
-  period    DateTime?
-  graduants Int
-  default   Boolean   @default(false)
-  status    Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+model graduateSession {
+  id          String     @id @default(uuid())
+  title       String     @db.VarChar(350)
+  description String?    @db.VarChar(650)
+  start       DateTime?
+  end         DateTime?
+  default     Boolean    @default(false)
+  status      Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  graduate    graduate[]
 
-  student student[]
-
-  @@map("ais_graduation")
+  @@map("ais_graduate_session")
 }
 
-model resession {
+model graduate {
+  id        String   @id @default(uuid())
+  sessionId String?
+  indexno   String   @unique
+  cgpa      String?
+  certNo    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session graduateSession? @relation(fields: [sessionId], references: [id])
+  student student          @relation(fields: [indexno], references: [indexno])
+
+  @@map("ais_graduate")
+}
+
+model resitSession {
   id        String    @id @default(uuid())
   title     String    @db.VarChar(350)
   start     DateTime?
@@ -874,34 +884,38 @@ model resession {
 
   resit resit[]
 
-  @@map("ais_resession")
+  @@map("ais_resit_session")
 }
 
 model resit {
   id                String      @id @default(uuid())
-  resitSessionId    String?
+  sessionId         String?
   registerSessionId String?
   trailSessionId    String
   schemeId          String
   courseId          String
   indexno           String      @db.VarChar(50)
   semesterNum       Int
-  totalScore        Int
+  totalScore        Int?
   approveScore      Boolean     @default(false)
   taken             Boolean     @default(false)
   paid              Boolean     @default(false)
   actionType        actionType?
   actionMeta        Json?
+  registeredAt      DateTime?
+  entryAt           DateTime?
+  approvedAt        DateTime?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
-  resession       resession? @relation(fields: [resitSessionId], references: [id])
-  trailSession    session?   @relation("trailSession", fields: [trailSessionId], references: [id])
-  registerSession session?   @relation("registerSession", fields: [registerSessionId], references: [id])
-  scheme          scheme?    @relation(fields: [schemeId], references: [id])
-  course          course?    @relation(fields: [courseId], references: [id])
-  student         student?   @relation(fields: [indexno], references: [indexno])
+  session         resitSession? @relation(fields: [sessionId], references: [id])
+  trailSession    session?      @relation("trailSession", fields: [trailSessionId], references: [id])
+  registerSession session?      @relation("registerSession", fields: [registerSessionId], references: [id])
+  scheme          scheme?       @relation(fields: [schemeId], references: [id])
+  course          course?       @relation(fields: [courseId], references: [id])
+  student         student?      @relation(fields: [indexno], references: [indexno])
 
+  @@unique(name: "resitId", [trailSessionId, indexno, courseId])
   @@map("ais_resit")
 }
 
@@ -1048,6 +1062,7 @@ model transaction {
 
   studentAccount         studentAccount[]
   activityFinanceVoucher activityFinanceVoucher[]
+  transwift              transwift[]
 
   @@index([transtag])
   @@index([studentId])

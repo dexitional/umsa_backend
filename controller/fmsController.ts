@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import moment from "moment";
 import AuthModel from '../model/authModel';
 import EvsModel from '../model/evsModel';
 import { PrismaClient } from '../prisma/client/ums';
@@ -449,19 +450,20 @@ export default class FmsController {
       try {
          const { studentId } = req.body
          delete req.body.studentId;
+         console.log(req.body)
          const resp = await fms.charge.create({
             data: {
                ... req.body,
                ... studentId && ({ student: { connect: { id: studentId }}}),
                studentAccount: { 
-                  create: { 
-                    data: {
+                  createMany: { 
+                    data: [{
                        studentId,
-                       narrative: req?.body?.title,
+                       narrative: "test",
                        amount: req?.body?.amount,
                        type: 'CHARGE',
                        currency: req?.body?.currency,
-                    } 
+                    }] 
                   }
                }
             }
@@ -606,6 +608,7 @@ export default class FmsController {
                   { student: { indexno: { contains: keyword }} },
                   { student: { fname: { contains: keyword }} },
                   { student: { lname: { contains: keyword }} },
+                  { transtype: { title: { contains: keyword }} },
                ],
                AND: [
                   { transtypeId: { notIn: [1,2] } }
@@ -713,7 +716,7 @@ export default class FmsController {
             data: {
                ... transtypeId && ({ transtype: { connect: { id: transtypeId }}}),
                // If Fees,Late,Resit,Graduation transaction
-               ... transtypeId && ['2','3','4','8'].includes(transtypeId) && ({ studentAccount: { updateMany: { data: {  narrative }  }}}),
+               ... transtypeId && [2,3,4,8].includes(Number(transtypeId)) && ({ studentAccount: { updateMany: { data: {  narrative }  }}}),
             }
          })
          if(resp){
@@ -731,11 +734,13 @@ export default class FmsController {
 
    async postPayment(req: Request,res: Response) {
       try {
-         const { studentId,transtypeId,bankaccId,collectorId } = req.body
+         const { studentId,transtypeId,bankaccId,collectorId,amount } = req.body
          delete req.body.studentId; delete req.body.transtypeId;
          delete req.body.bankaccId; delete req.body.collectorId;
          const narrative = `Payment of ${transtypeId == 8 ? 'Graduation' : transtypeId == 3 ? 'Resit' : transtypeId == 8 ? 'Late Registration' : 'Academic' } Fees`
-         const resp = await fms.transaction.create({
+         
+         const st:any = await fms.student.findUnique({ where: { id: studentId }, select: { entryGroup: true, indexno: true } })
+         const resp:any = await fms.transaction.create({
             data: {
                ... req.body,
                ... collectorId && ({ collector: { connect: { id: collectorId }}}),
@@ -743,17 +748,49 @@ export default class FmsController {
                ... studentId && ({ student: { connect: { id: studentId }}}),
                ... transtypeId && ({ transtype: { connect: { id: transtypeId }}}),
                // If Fees,Late,Resit,Graduation transaction
-               ... transtypeId && ['2','3','4','8'].includes(transtypeId) && ({ studentAccount: { createMany: {  data: { studentId, narrative, amount: (-1 * req?.body?.amount), type: 'PAYMENT', currency: req?.body?.currency }  }}}),
-               // If Voucher transaction
-               //... transtypeId && transtypeId == '1' && ({ transtype: { connect: { id: transtypeId }}}),
+               ... transtypeId && [2,3,4,8].includes(Number(transtypeId)) && ({ studentAccount: { createMany: {  data: [{ studentId, narrative, amount: (-1 * req?.body?.amount), type: 'PAYMENT', currency: req?.body?.currency }]  }}}),
             }
          })
          if(resp){
             // Retire Student Account Balance after Fees,Late,Resit,Graduation transaction
-            if(['2','3','4','8'].includes(transtypeId)){
+            if([2,3,4,8].includes(Number(transtypeId))){
               const bal:any = await fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
               await fms.student.update({ where: { id: studentId }, data: { accountNet: bal?._sum?.amount }})
             }
+            
+            // If Resit - Run Resit operations
+            if (transtypeId == 3) {
+               // Retire Number of Resit Papers
+               const resit_charge: any = await fms.transtype.findUnique({ where: { id: Number(transtypeId) } });
+               const pay_count = amount / Math.floor(( st?.entryGroup == 'INT' ? resit_charge?.amountInUsd : resit_charge?.amountInGhc));
+               const resits:any = await fms.resit.findMany({ where: { indexno: st?.indexno, paid: false }, take: pay_count })
+               const filters:any = resits?.map((r:any) => ({ indexno: r.indexno }))
+               // Update Paid Status of resit_data or papers
+               const ups = await fms.resit.updateMany({ where: { OR: filters, AND: [{ paid: false }] }, data: { paid: true } })
+               // Get Paid Balance for Extra Resit
+               const unsorted_courses = pay_count - ups?.count;
+               const resit_balance = pay_count - ups?.count;
+            }
+
+            // If Transwift Transtypes - Run Transwift( Attestation, Proficiency, Introductory, Transcript) operations
+            if ([5,6,9,10].includes(Number(transtypeId))) {
+               // Retire Number of Resit Papers
+               const charge: any = await fms.transtype.findUnique({ where: { id: Number(transtypeId) } });
+               const count = amount / Math.floor(( st?.entryGroup == 'INT' ? charge?.amountInUsd : charge?.amountInGhc));
+               // Create Transwift Requests for Payment
+               const tw = await fms.transwift.upsert({
+                  where: { transactId: resp?.id},
+                  create: {
+                     studentId,
+                     transactId: resp?.id,
+                     quantity: count
+                  },
+                  update: {}
+               }) 
+            }
+            
+            // If Late fine - Run Late fine operations
+
             // Return Response
             res.status(200).json(resp)
          } else {
@@ -936,7 +973,7 @@ export default class FmsController {
                const vc:any = await fms.voucher.findFirst({ where: { admissionId: sessionId, vendorId: cl?.id, categoryId: pr?.categoryId, sellType: pr?.sellType, soldAt: null } });
                if(!vc) return res.status(200).json({ success: false, data: null, msg: `Voucher quota exhausted` });
                // Send SMS to Buyer
-               const msg = `Hi! Your AUCC Applicant Voucher info are SERIAL: ${vc?.serial}, PIN: ${vc?.pin} Goto https://portal.aucc.edu.gh to apply!`;
+               const msg = `Hi! Your AUCC Applicant Voucher info are SERIAL: ${vc?.serial}, PIN: ${vc?.pin} Goto https://portal.aucb.edu.gh to apply!`;
                const send = await sms(buyerPhone, msg);
                // let send = { code: 1001 };
                const ins = await fms.transaction.create({ 
@@ -963,7 +1000,7 @@ export default class FmsController {
            } else {
                const vc:any = await fms.activityFinanceVoucher.findFirst({ where: { transactId: tr.id } });
                if(vc){
-                 const msg = `Hi! AUCC Voucher info are, Serial: ${vc?.serial} Pin: ${vc?.pin} Goto https://portal.aucc.edu.gh to apply!`;
+                 const msg = `Hi! AUCC Voucher info are, Serial: ${vc?.serial} Pin: ${vc?.pin} Goto https://portal.aucb.edu.gh to apply!`;
                  //const send = await sms(buyerPhone, msg);
                  let send = { code: 1001 };
                  await fms.activityFinanceVoucher.update({ where: { id: vc.id }, data: { smsCode: send?.code } })
@@ -985,12 +1022,11 @@ export default class FmsController {
          /* OTHER PAYMENT SERVICE (ACADEMIC FEES, RESIT, GRADUATION, ATTESTATION, PROFICIENCY, TRANSCRIPT, LATE FINE ) */
          } else {
             /* PAY FOR SERVICES */
-            const st:any = await fms.student.findFirst({ where: { OR: [ { id: studentId }, { indexno: studentId } ] } });
+            const st:any = await fms.student.findFirst({ where: { OR: [ { id: studentId }, { indexno: studentId } ] }, include: {  program:{ select:{ prefix:true }}} });
             if(!tr){
                const narrative = `Payment of ${serviceId == 8 ? 'Graduation' : serviceId == 3 ? 'Resit' : serviceId == 8 ? 'Late Registration' : 'Academic' } Fees`
                data = { ...data, studentId: st?.id }
                studentId = st?.id;
-               console.log(data)
                const ins = await fms.transaction.create({ 
                   data: {
                      ... data,
@@ -1007,12 +1043,53 @@ export default class FmsController {
                   if (serviceId == 3) {
                      // Retire Number of Resit Papers
                      const resit_charge: any = await fms.transtype.findUnique({ where: { id: Number(serviceId) } });
-                     const pay_count = Math.floor(( st?.entryGroup == 'INT' ? resit_charge?.amountInUsd : resit_charge?.amountInGhc) % amountPaid);
-                     const resits:any = await fms.resit.findMany({ where: { indexno: st?.indexno }, take: pay_count })
+                     const pay_count = Math.floor( amountPaid / ( st?.entryGroup == 'INT' ? resit_charge?.amountInUsd : resit_charge?.amountInGhc));
+                     const resits:any = await fms.resit.findMany({ where: { indexno: st?.indexno, paid: false }, take: pay_count })
                      const filters:any = resits?.map((r:any) => ({ indexno: r.indexno }))
                      // Update Paid Status of resit_data or papers
-                     const ups = await fms.resit.updateMany({ where: { OR: filters }, data: { paid: true } })
+                     const ups = await fms.resit.updateMany({ where: { OR: filters, AND: [{ paid: false }] }, data: { paid: true } })
                   }
+
+                 /* If Transwift Transtypes - Run Transwift( Attestation, Proficiency, Introductory, Transcript) operations */
+                  if ([5,6,9,10].includes(Number(serviceId))) {
+                     // Retire Number of Resit Papers
+                     const charge: any = await fms.transtype.findUnique({ where: { id: Number(serviceId) } });
+                     const count = amountPaid / Math.floor(( st?.entryGroup == 'INT' ? charge?.amountInUsd : charge?.amountInGhc));
+                     // Create Transwift Requests for Payment
+                     const tw = await fms.transwift.upsert({
+                       where: { transactId: ins?.id},
+                       create: { studentId, transactId: ins?.id, quantity: count },
+                       update: {}
+                     }) 
+                  }
+
+                  /* Index Number Generation For Freshers  */
+                  if(serviceId == 1 && ( st.semesterNum == st.entrySemesterNum )){
+                     // Get student account transaction & Bill + Quota
+                     const cx:any = await fms.studentAccount.findFirst({ where: { studentId, type: 'BILL' }, include: { bill: { select: { quota: true }}} });
+                     const px:any = await fms.studentAccount.aggregate({_sum: { amount: true }, where: { studentId, type: 'PAYMENT' }})
+                     // Compare All Payments to Bill Quota
+                     const isPassedIndex = ( px?._sum?.amount >= (cx?.bill?.quota || 0) * cx?.amount );
+                     // Generate Index 
+                     if(!st?.indexno && isPassedIndex){
+                        let indexno;
+                        const students:any = await fms.$queryRaw`select * from ais_student where date_format(entryDate,'%m%y') = ${moment(st?.entryDate).format("mmyyyy")}`;
+                        const studentCount = students?.length+1;
+                        const count = studentCount?.toString().length == 1 ? `000${studentCount}` : studentCount?.toString().length == 2 ? `00${studentCount}` : studentCount?.toString().length == 3 ? `0${studentCount}` : studentCount;
+                        indexno = `${st?.program?.prefix}${moment(st?.entryDate || new Date()).format("MMYY")}${count}`;
+                        await fms.student.update({ where: {  id: studentId }, data: { indexno } });
+                        // Send Notfication
+                        const msg = `Hi ${st.fname}! Your AUCB Index number has been generated: ${indexno}, Thank you!`;
+                        await sms(st?.phone, msg);
+                     }     
+                  }
+                  
+                  
+                  
+                  
+
+
+                  
                   // Return Response
                   return res.status(200).json({success: true, data: { transId: ins?.id, studentId, serviceId } });
                } else {
@@ -1145,9 +1222,7 @@ export default class FmsController {
 
    async retireAccount(req: Request,res: Response) {
       try {
-         const st = await fms.student.findFirst({
-            where: { OR: [ { id: req.params.id }, { indexno: req.params.id } ] }
-         })
+         const st = await fms.student.findFirst({ where: { OR: [ { id: req.params.tag }, { indexno: req.params.tag } ] } })
          if(st){
             const bal:any = await fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId: st?.id } });
             const ups = await fms.student.update({ where: { id: st?.id }, data: { accountNet: bal?._sum?.amount }})
@@ -1185,14 +1260,18 @@ export default class FmsController {
    async fetchServices(req: Request,res: Response) {
    const { page = 1, pageSize = 9, keyword = '' } :any = req.query;
    const offset = (page - 1) * pageSize;
-   let searchCondition = { }
+   let searchCondition:any = { 
+      where: { id: { notIn : [ 1,2,7] }}
+   }
    try {
       if(keyword) searchCondition = { 
          where: { 
             OR: [
                { title: { contains: keyword } },
-               { transtype: { title: { contains: keyword }} },
             ],
+            AND: [
+               { id: { notIn: [ 1,2,7] }}
+            ]
          }
       }
       const resp = await fms.$transaction([

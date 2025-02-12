@@ -12,6 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const moment_1 = __importDefault(require("moment"));
 const authModel_1 = __importDefault(require("../model/authModel"));
 const evsModel_1 = __importDefault(require("../model/evsModel"));
 const ums_1 = require("../prisma/client/ums");
@@ -473,28 +474,29 @@ class FmsController {
         });
     }
     postCharge(req, res) {
-        var _a, _b, _c, _d;
+        var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { studentId } = req.body;
                 delete req.body.studentId;
+                console.log(req.body);
                 const resp = yield fms.charge.create({
                     data: Object.assign(Object.assign(Object.assign({}, req.body), studentId && ({ student: { connect: { id: studentId } } })), { studentAccount: {
-                            create: {
-                                data: {
-                                    studentId,
-                                    narrative: (_a = req === null || req === void 0 ? void 0 : req.body) === null || _a === void 0 ? void 0 : _a.title,
-                                    amount: (_b = req === null || req === void 0 ? void 0 : req.body) === null || _b === void 0 ? void 0 : _b.amount,
-                                    type: 'CHARGE',
-                                    currency: (_c = req === null || req === void 0 ? void 0 : req.body) === null || _c === void 0 ? void 0 : _c.currency,
-                                }
+                            createMany: {
+                                data: [{
+                                        studentId,
+                                        narrative: "test",
+                                        amount: (_a = req === null || req === void 0 ? void 0 : req.body) === null || _a === void 0 ? void 0 : _a.amount,
+                                        type: 'CHARGE',
+                                        currency: (_b = req === null || req === void 0 ? void 0 : req.body) === null || _b === void 0 ? void 0 : _b.currency,
+                                    }]
                             }
                         } })
                 });
                 if (resp) {
                     // Retire Account
                     const bal = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
-                    yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_d = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _d === void 0 ? void 0 : _d.amount } });
+                    yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_c = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _c === void 0 ? void 0 : _c.amount } });
                     // Create record in student account
                     res.status(200).json(resp);
                 }
@@ -633,6 +635,7 @@ class FmsController {
                                 { student: { indexno: { contains: keyword } } },
                                 { student: { fname: { contains: keyword } } },
                                 { student: { lname: { contains: keyword } } },
+                                { transtype: { title: { contains: keyword } } },
                             ],
                             AND: [
                                 { transtypeId: { notIn: [1, 2] } }
@@ -731,7 +734,7 @@ class FmsController {
                 const narrative = `Payment of ${transtypeId == 8 ? 'Graduation' : transtypeId == 3 ? 'Resit' : transtypeId == 8 ? 'Late Registration' : 'Academic'} Fees`;
                 const resp = yield fms.transaction.update({
                     where: { id: transactId },
-                    data: Object.assign(Object.assign({}, transtypeId && ({ transtype: { connect: { id: transtypeId } } })), transtypeId && ['2', '3', '4', '8'].includes(transtypeId) && ({ studentAccount: { updateMany: { data: { narrative } } } }))
+                    data: Object.assign(Object.assign({}, transtypeId && ({ transtype: { connect: { id: transtypeId } } })), transtypeId && [2, 3, 4, 8].includes(Number(transtypeId)) && ({ studentAccount: { updateMany: { data: { narrative } } } }))
                 });
                 if (resp) {
                     // Return Response
@@ -751,21 +754,52 @@ class FmsController {
         var _a, _b, _c;
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const { studentId, transtypeId, bankaccId, collectorId } = req.body;
+                const { studentId, transtypeId, bankaccId, collectorId, amount } = req.body;
                 delete req.body.studentId;
                 delete req.body.transtypeId;
                 delete req.body.bankaccId;
                 delete req.body.collectorId;
                 const narrative = `Payment of ${transtypeId == 8 ? 'Graduation' : transtypeId == 3 ? 'Resit' : transtypeId == 8 ? 'Late Registration' : 'Academic'} Fees`;
+                const st = yield fms.student.findUnique({ where: { id: studentId }, select: { entryGroup: true, indexno: true } });
                 const resp = yield fms.transaction.create({
-                    data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, req.body), collectorId && ({ collector: { connect: { id: collectorId } } })), bankaccId && ({ bankacc: { connect: { id: bankaccId } } })), studentId && ({ student: { connect: { id: studentId } } })), transtypeId && ({ transtype: { connect: { id: transtypeId } } })), transtypeId && ['2', '3', '4', '8'].includes(transtypeId) && ({ studentAccount: { createMany: { data: { studentId, narrative, amount: (-1 * ((_a = req === null || req === void 0 ? void 0 : req.body) === null || _a === void 0 ? void 0 : _a.amount)), type: 'PAYMENT', currency: (_b = req === null || req === void 0 ? void 0 : req.body) === null || _b === void 0 ? void 0 : _b.currency } } } }))
+                    data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, req.body), collectorId && ({ collector: { connect: { id: collectorId } } })), bankaccId && ({ bankacc: { connect: { id: bankaccId } } })), studentId && ({ student: { connect: { id: studentId } } })), transtypeId && ({ transtype: { connect: { id: transtypeId } } })), transtypeId && [2, 3, 4, 8].includes(Number(transtypeId)) && ({ studentAccount: { createMany: { data: [{ studentId, narrative, amount: (-1 * ((_a = req === null || req === void 0 ? void 0 : req.body) === null || _a === void 0 ? void 0 : _a.amount)), type: 'PAYMENT', currency: (_b = req === null || req === void 0 ? void 0 : req.body) === null || _b === void 0 ? void 0 : _b.currency }] } } }))
                 });
                 if (resp) {
                     // Retire Student Account Balance after Fees,Late,Resit,Graduation transaction
-                    if (['2', '3', '4', '8'].includes(transtypeId)) {
+                    if ([2, 3, 4, 8].includes(Number(transtypeId))) {
                         const bal = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId } });
                         yield fms.student.update({ where: { id: studentId }, data: { accountNet: (_c = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _c === void 0 ? void 0 : _c.amount } });
                     }
+                    // If Resit - Run Resit operations
+                    if (transtypeId == 3) {
+                        // Retire Number of Resit Papers
+                        const resit_charge = yield fms.transtype.findUnique({ where: { id: Number(transtypeId) } });
+                        const pay_count = amount / Math.floor(((st === null || st === void 0 ? void 0 : st.entryGroup) == 'INT' ? resit_charge === null || resit_charge === void 0 ? void 0 : resit_charge.amountInUsd : resit_charge === null || resit_charge === void 0 ? void 0 : resit_charge.amountInGhc));
+                        const resits = yield fms.resit.findMany({ where: { indexno: st === null || st === void 0 ? void 0 : st.indexno, paid: false }, take: pay_count });
+                        const filters = resits === null || resits === void 0 ? void 0 : resits.map((r) => ({ indexno: r.indexno }));
+                        // Update Paid Status of resit_data or papers
+                        const ups = yield fms.resit.updateMany({ where: { OR: filters, AND: [{ paid: false }] }, data: { paid: true } });
+                        // Get Paid Balance for Extra Resit
+                        const unsorted_courses = pay_count - (ups === null || ups === void 0 ? void 0 : ups.count);
+                        const resit_balance = pay_count - (ups === null || ups === void 0 ? void 0 : ups.count);
+                    }
+                    // If Transwift Transtypes - Run Transwift( Attestation, Proficiency, Introductory, Transcript) operations
+                    if ([5, 6, 9, 10].includes(Number(transtypeId))) {
+                        // Retire Number of Resit Papers
+                        const charge = yield fms.transtype.findUnique({ where: { id: Number(transtypeId) } });
+                        const count = amount / Math.floor(((st === null || st === void 0 ? void 0 : st.entryGroup) == 'INT' ? charge === null || charge === void 0 ? void 0 : charge.amountInUsd : charge === null || charge === void 0 ? void 0 : charge.amountInGhc));
+                        // Create Transwift Requests for Payment
+                        const tw = yield fms.transwift.upsert({
+                            where: { transactId: resp === null || resp === void 0 ? void 0 : resp.id },
+                            create: {
+                                studentId,
+                                transactId: resp === null || resp === void 0 ? void 0 : resp.id,
+                                quantity: count
+                            },
+                            update: {}
+                        });
+                    }
+                    // If Late fine - Run Late fine operations
                     // Return Response
                     res.status(200).json(resp);
                 }
@@ -925,7 +959,7 @@ class FmsController {
         });
     }
     payService(req, res) {
-        var _a;
+        var _a, _b, _c, _d;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const api = req.query.api;
@@ -954,9 +988,9 @@ class FmsController {
                         if (!vc)
                             return res.status(200).json({ success: false, data: null, msg: `Voucher quota exhausted` });
                         // Send SMS to Buyer
-                        const msg = `Hi! AUCC Voucher info are, Serial: ${vc === null || vc === void 0 ? void 0 : vc.serial} Pin: ${vc === null || vc === void 0 ? void 0 : vc.pin} Goto https://portal.aucc.edu.gh to apply!`;
-                        //const send = await sms(buyerPhone, msg);
-                        let send = { code: 1001 };
+                        const msg = `Hi! Your AUCC Applicant Voucher info are SERIAL: ${vc === null || vc === void 0 ? void 0 : vc.serial}, PIN: ${vc === null || vc === void 0 ? void 0 : vc.pin} Goto https://portal.aucb.edu.gh to apply!`;
+                        const send = yield sms(buyerPhone, msg);
+                        // let send = { code: 1001 };
                         const ins = yield fms.transaction.create({
                             data: Object.assign(Object.assign({}, data), { activityFinanceVoucher: {
                                     createMany: {
@@ -977,7 +1011,7 @@ class FmsController {
                     else {
                         const vc = yield fms.activityFinanceVoucher.findFirst({ where: { transactId: tr.id } });
                         if (vc) {
-                            const msg = `Hi! AUCC Voucher info are, Serial: ${vc === null || vc === void 0 ? void 0 : vc.serial} Pin: ${vc === null || vc === void 0 ? void 0 : vc.pin} Goto https://portal.aucc.edu.gh to apply!`;
+                            const msg = `Hi! AUCC Voucher info are, Serial: ${vc === null || vc === void 0 ? void 0 : vc.serial} Pin: ${vc === null || vc === void 0 ? void 0 : vc.pin} Goto https://portal.aucb.edu.gh to apply!`;
                             //const send = await sms(buyerPhone, msg);
                             let send = { code: 1001 };
                             yield fms.activityFinanceVoucher.update({ where: { id: vc.id }, data: { smsCode: send === null || send === void 0 ? void 0 : send.code } });
@@ -999,12 +1033,11 @@ class FmsController {
                 }
                 else {
                     /* PAY FOR SERVICES */
-                    const st = yield fms.student.findFirst({ where: { OR: [{ id: studentId }, { indexno: studentId }] } });
+                    const st = yield fms.student.findFirst({ where: { OR: [{ id: studentId }, { indexno: studentId }] }, include: { program: { select: { prefix: true } } } });
                     if (!tr) {
                         const narrative = `Payment of ${serviceId == 8 ? 'Graduation' : serviceId == 3 ? 'Resit' : serviceId == 8 ? 'Late Registration' : 'Academic'} Fees`;
                         data = Object.assign(Object.assign({}, data), { studentId: st === null || st === void 0 ? void 0 : st.id });
                         studentId = st === null || st === void 0 ? void 0 : st.id;
-                        console.log(data);
                         const ins = yield fms.transaction.create({
                             data: Object.assign(Object.assign({}, data), serviceId && [2, 3, 4, 8].includes(serviceId) && ({ studentAccount: { createMany: { data: { studentId, narrative, currency, amount: (-1 * amountPaid), type: 'PAYMENT' } } } }))
                         });
@@ -1017,11 +1050,43 @@ class FmsController {
                             if (serviceId == 3) {
                                 // Retire Number of Resit Papers
                                 const resit_charge = yield fms.transtype.findUnique({ where: { id: Number(serviceId) } });
-                                const pay_count = Math.floor(((st === null || st === void 0 ? void 0 : st.entryGroup) == 'INT' ? resit_charge === null || resit_charge === void 0 ? void 0 : resit_charge.amountInUsd : resit_charge === null || resit_charge === void 0 ? void 0 : resit_charge.amountInGhc) % amountPaid);
-                                const resits = yield fms.resit.findMany({ where: { indexno: st === null || st === void 0 ? void 0 : st.indexno }, take: pay_count });
+                                const pay_count = Math.floor(amountPaid / ((st === null || st === void 0 ? void 0 : st.entryGroup) == 'INT' ? resit_charge === null || resit_charge === void 0 ? void 0 : resit_charge.amountInUsd : resit_charge === null || resit_charge === void 0 ? void 0 : resit_charge.amountInGhc));
+                                const resits = yield fms.resit.findMany({ where: { indexno: st === null || st === void 0 ? void 0 : st.indexno, paid: false }, take: pay_count });
                                 const filters = resits === null || resits === void 0 ? void 0 : resits.map((r) => ({ indexno: r.indexno }));
                                 // Update Paid Status of resit_data or papers
-                                const ups = yield fms.resit.updateMany({ where: { OR: filters }, data: { paid: true } });
+                                const ups = yield fms.resit.updateMany({ where: { OR: filters, AND: [{ paid: false }] }, data: { paid: true } });
+                            }
+                            /* If Transwift Transtypes - Run Transwift( Attestation, Proficiency, Introductory, Transcript) operations */
+                            if ([5, 6, 9, 10].includes(Number(serviceId))) {
+                                // Retire Number of Resit Papers
+                                const charge = yield fms.transtype.findUnique({ where: { id: Number(serviceId) } });
+                                const count = amountPaid / Math.floor(((st === null || st === void 0 ? void 0 : st.entryGroup) == 'INT' ? charge === null || charge === void 0 ? void 0 : charge.amountInUsd : charge === null || charge === void 0 ? void 0 : charge.amountInGhc));
+                                // Create Transwift Requests for Payment
+                                const tw = yield fms.transwift.upsert({
+                                    where: { transactId: ins === null || ins === void 0 ? void 0 : ins.id },
+                                    create: { studentId, transactId: ins === null || ins === void 0 ? void 0 : ins.id, quantity: count },
+                                    update: {}
+                                });
+                            }
+                            /* Index Number Generation For Freshers  */
+                            if (serviceId == 1 && (st.semesterNum == st.entrySemesterNum)) {
+                                // Get student account transaction & Bill + Quota
+                                const cx = yield fms.studentAccount.findFirst({ where: { studentId, type: 'BILL' }, include: { bill: { select: { quota: true } } } });
+                                const px = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId, type: 'PAYMENT' } });
+                                // Compare All Payments to Bill Quota
+                                const isPassedIndex = (((_b = px === null || px === void 0 ? void 0 : px._sum) === null || _b === void 0 ? void 0 : _b.amount) >= (((_c = cx === null || cx === void 0 ? void 0 : cx.bill) === null || _c === void 0 ? void 0 : _c.quota) || 0) * (cx === null || cx === void 0 ? void 0 : cx.amount));
+                                // Generate Index 
+                                if (!(st === null || st === void 0 ? void 0 : st.indexno) && isPassedIndex) {
+                                    let indexno;
+                                    const students = yield fms.$queryRaw `select * from ais_student where date_format(entryDate,'%m%y') = ${(0, moment_1.default)(st === null || st === void 0 ? void 0 : st.entryDate).format("mmyyyy")}`;
+                                    const studentCount = (students === null || students === void 0 ? void 0 : students.length) + 1;
+                                    const count = (studentCount === null || studentCount === void 0 ? void 0 : studentCount.toString().length) == 1 ? `000${studentCount}` : (studentCount === null || studentCount === void 0 ? void 0 : studentCount.toString().length) == 2 ? `00${studentCount}` : (studentCount === null || studentCount === void 0 ? void 0 : studentCount.toString().length) == 3 ? `0${studentCount}` : studentCount;
+                                    indexno = `${(_d = st === null || st === void 0 ? void 0 : st.program) === null || _d === void 0 ? void 0 : _d.prefix}${(0, moment_1.default)((st === null || st === void 0 ? void 0 : st.entryDate) || new Date()).format("MMYY")}${count}`;
+                                    yield fms.student.update({ where: { id: studentId }, data: { indexno } });
+                                    // Send Notfication
+                                    const msg = `Hi ${st.fname}! Your AUCB Index number has been generated: ${indexno}, Thank you!`;
+                                    yield sms(st === null || st === void 0 ? void 0 : st.phone, msg);
+                                }
                             }
                             // Return Response
                             return res.status(200).json({ success: true, data: { transId: ins === null || ins === void 0 ? void 0 : ins.id, studentId, serviceId } });
@@ -1154,9 +1219,7 @@ class FmsController {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const st = yield fms.student.findFirst({
-                    where: { OR: [{ id: req.params.id }, { indexno: req.params.id }] }
-                });
+                const st = yield fms.student.findFirst({ where: { OR: [{ id: req.params.tag }, { indexno: req.params.tag }] } });
                 if (st) {
                     const bal = yield fms.studentAccount.aggregate({ _sum: { amount: true }, where: { studentId: st === null || st === void 0 ? void 0 : st.id } });
                     const ups = yield fms.student.update({ where: { id: st === null || st === void 0 ? void 0 : st.id }, data: { accountNet: (_a = bal === null || bal === void 0 ? void 0 : bal._sum) === null || _a === void 0 ? void 0 : _a.amount } });
@@ -1199,15 +1262,19 @@ class FmsController {
         return __awaiter(this, void 0, void 0, function* () {
             const { page = 1, pageSize = 9, keyword = '' } = req.query;
             const offset = (page - 1) * pageSize;
-            let searchCondition = {};
+            let searchCondition = {
+                where: { id: { notIn: [1, 2, 7] } }
+            };
             try {
                 if (keyword)
                     searchCondition = {
                         where: {
                             OR: [
                                 { title: { contains: keyword } },
-                                { transtype: { title: { contains: keyword } } },
                             ],
+                            AND: [
+                                { id: { notIn: [1, 2, 7] } }
+                            ]
                         }
                     };
                 const resp = yield fms.$transaction([

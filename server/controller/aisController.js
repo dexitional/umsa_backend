@@ -408,6 +408,7 @@ class AisController {
         });
     }
     stageStudent(req, res) {
+        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { studentId } = req.body;
@@ -422,6 +423,11 @@ class AisController {
                     data: Object.assign(Object.assign({}, ssoData), { group: { connect: { id: 1 } } }),
                 });
                 if (resp) {
+                    // Send Credentials By SMS
+                    const st = yield ais.student.findFirst({ where: { id: studentId } });
+                    if (st === null || st === void 0 ? void 0 : st.phone)
+                        yield sms(st === null || st === void 0 ? void 0 : st.phone, `Hi! Your new credentials is username: ${(_a = st === null || st === void 0 ? void 0 : st.instituteEmail) !== null && _a !== void 0 ? _a : studentId}, password: ${password}`);
+                    // Return Response
                     res.status(200).json(resp);
                 }
                 else {
@@ -435,6 +441,7 @@ class AisController {
         });
     }
     resetStudent(req, res) {
+        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const { studentId } = req.body;
@@ -449,7 +456,7 @@ class AisController {
                     // Send Password By SMS
                     const st = yield ais.student.findFirst({ where: { id: studentId } });
                     if (st === null || st === void 0 ? void 0 : st.phone)
-                        yield sms(st === null || st === void 0 ? void 0 : st.phone, `Hi! Your new credentials is username: ${st === null || st === void 0 ? void 0 : st.instituteEmail}, password: ${password}`);
+                        yield sms(st === null || st === void 0 ? void 0 : st.phone, `Hi! Your new credentials is username: ${(_a = st === null || st === void 0 ? void 0 : st.instituteEmail) !== null && _a !== void 0 ? _a : studentId}, password: ${password}`);
                     // Return Password
                     res.status(200).json({ password });
                 }
@@ -570,6 +577,7 @@ class AisController {
                 delete req.body.religionId;
                 delete req.body.disabilityId;
                 req.body.indexno = !req.body.indexno ? null : req.body.indexno;
+                req.body.entryDate = !req.body.entryDate ? null : (0, moment_1.default)(req.body.indexno).toDate;
                 const resp = yield ais.student.create({
                     data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, req.body), programId && ({ program: { connect: { id: programId } } })), titleId && ({ title: { connect: { id: titleId } } })), countryId && ({ country: { connect: { id: countryId } } })), regionId && ({ region: { connect: { id: regionId } } })), religionId && ({ religion: { connect: { id: religionId } } })), disabilityId && ({ disability: { connect: { id: disabilityId } } }))
                 });
@@ -597,7 +605,8 @@ class AisController {
                 delete req.body.religionId;
                 delete req.body.disabilityId;
                 req.body.indexno = !req.body.indexno ? null : req.body.indexno;
-                //req.body.entryDate  = moment(req.body.indexno).toDate;
+                req.body.entryDate = !req.body.entryDate ? null : req.body.entryDate;
+                console.log(req.body);
                 const resp = yield ais.student.update({
                     where: { id: req.params.id },
                     data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, req.body), programId && ({ program: { connect: { id: programId } } })), titleId && ({ title: { connect: { id: titleId } } })), countryId && ({ country: { connect: { id: countryId } } })), regionId && ({ region: { connect: { id: regionId } } })), religionId && ({ religion: { connect: { id: religionId } } })), disabilityId && ({ disability: { connect: { id: disabilityId } } }))
@@ -1107,6 +1116,7 @@ class AisController {
                                 { student: { lname: { contains: keyword } } },
                                 { student: { id: { contains: keyword } } },
                                 { student: { program: { longName: { contains: keyword } } } },
+                                { session: { title: { contains: keyword } } },
                             ],
                         }
                     };
@@ -1117,9 +1127,10 @@ class AisController {
                                 select: {
                                     fname: true, mname: true, lname: true, indexno: true,
                                     semesterNum: true, id: true, gender: true,
-                                    program: { select: { longName: true } }
+                                    program: { select: { longName: true } },
                                 }
-                            }
+                            },
+                            session: { select: { title: true, tag: true } },
                         } }))
                 ]);
                 //if(resp && resp[1]?.length){
@@ -1141,7 +1152,7 @@ class AisController {
     fetchRegistration(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                let resp;
+                let resp = [];
                 const st = yield ais.student.findUnique({
                     where: { id: req.params.indexno },
                     select: { id: true, indexno: true, fname: true, mname: true, lname: true, gender: true, semesterNum: true, program: { select: { longName: true, department: true } } },
@@ -1158,7 +1169,23 @@ class AisController {
                             session: { default: true }
                         },
                     });
-                console.log(req.params.indexno, st, resp);
+                // Resit Courses
+                const resits = yield ais.resit.findMany({
+                    where: {
+                        indexno: req.params.indexno,
+                        registerSession: { default: true }
+                    },
+                    select: {
+                        course: { select: { title: true, creditHour: true } },
+                        registerSession: { select: { title: true } },
+                        courseId: true
+                    }
+                });
+                if (resits.length) {
+                    for (let rs of resits) {
+                        resp.push({ course: rs.course, session: rs.registerSession, courseId: rs.courseId, type: 'R' });
+                    }
+                }
                 if (resp) {
                     // Add Student Bio
                     resp = resp.map((r) => (Object.assign(Object.assign({}, r), { student: st })));
@@ -1211,7 +1238,6 @@ class AisController {
                         OR: groupCode,
                     },
                 });
-                console.log("Bill", bill);
                 // const meta:any = []
                 if (student && maincourses.length) {
                     for (const course of maincourses) {
@@ -1309,8 +1335,10 @@ class AisController {
             try {
                 const courses = req.body;
                 const data = [], rdata = [];
-                const slip = yield ais.assessment.findMany({ where: { indexno: courses[0].indexno, session: { default: true } } });
-                if (slip.length)
+                // const slip = await ais.assessment.findMany({ where: { indexno: courses[0].indexno, session: { default: true }} });
+                const slip = yield ais.assessment.findFirst({ where: { indexno: courses[0].indexno, session: { default: true } } });
+                // if(slip.length) throw("Registration already submitted!")
+                if (slip)
                     throw ("Registration already submitted!");
                 const resitcourses = courses.filter((row) => row.type == 'R');
                 const maincourses = courses.filter((row) => row.type != 'R');
@@ -1328,21 +1356,24 @@ class AisController {
                         });
                     }
                 }
-                if (resitcourses.length) {
+                if (resitcourses === null || resitcourses === void 0 ? void 0 : resitcourses.length) {
                     // Resit Session Info
-                    const rsession = yield ais.resession.findFirst({ where: { default: true } });
+                    const rsession = yield ais.resitSession.findFirst({ where: { default: true } });
                     // Save Resit Registration
                     for (const course of resitcourses) {
                         const ups = yield ais.resit.updateMany({
                             where: {
                                 indexno: course === null || course === void 0 ? void 0 : course.indexno,
                                 courseId: course === null || course === void 0 ? void 0 : course.code,
-                                taken: false
+                                taken: false,
+                                paid: true
                             },
                             data: {
-                                registerSessionId: course === null || course === void 0 ? void 0 : course.sessionId,
-                                resitSessionId: rsession === null || rsession === void 0 ? void 0 : rsession.id,
-                                taken: true
+                                sessionId: rsession.id,
+                                registerSessionId: course === null || course === void 0 ? void 0 : course.sessionId
+                                //registerSession: { connect: { id: course?.sessionId }},
+                                //... rsession && ({ session: { connect: { id:rsession?.id }} }),
+                                //taken: true  - Only when Resit Exam is taken
                             }
                         });
                         if (ups)
@@ -1354,11 +1385,12 @@ class AisController {
                         indexno: maincourses[0].indexno,
                         sessionId: maincourses[0].sessionId,
                         courses: courses === null || courses === void 0 ? void 0 : courses.length,
-                        credits: courses === null || courses === void 0 ? void 0 : courses.reduce((sum, cur) => sum + cur.credit, 0)
+                        credits: courses === null || courses === void 0 ? void 0 : courses.reduce((sum, cur) => sum + cur.credit, 0),
+                        semesterNum: maincourses[0].semesterNum,
+                        dump: courses
                     } });
                 // Save Registration Courses
                 const mainresp = yield ais.assessment.createMany({ data });
-                console.log(mainresp);
                 if (mainresp) {
                     res.status(200).json({ courses: mainresp, resits: rdata, totalCourses: courses.length });
                 }
@@ -1404,7 +1436,7 @@ class AisController {
                             data: {
                                 registerSessionId: course.sessionId,
                                 resitSessionId: course.sessionId,
-                                taken: true
+                                //taken: true
                             }
                         });
                         if (ups)
@@ -1453,7 +1485,7 @@ class AisController {
                     },
                     data: {
                         taken: false,
-                        resitSessionId: null,
+                        sessionId: null,
                         registerSessionId: null,
                     }
                 });
@@ -1560,7 +1592,7 @@ class AisController {
         });
     }
     fetchProgramStructure(req, res) {
-        var _a, _b, _c, _d, _e, _f, _g, _h;
+        var _a, _b, _c, _d, _e, _f;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const resp = yield ais.program.findUnique({
@@ -1591,8 +1623,8 @@ class AisController {
                 if ((_a = resp === null || resp === void 0 ? void 0 : resp.structure) === null || _a === void 0 ? void 0 : _a.length) {
                     var mdata = new Map(), sdata = new Map();
                     for (const sv of resp === null || resp === void 0 ? void 0 : resp.structure) {
-                        const index = (_b = `LEVEL ${Math.ceil(sv.semesterNum / 2) * 100}, ${sv.semesterNum % 2 == 0 ? 'SEMESTER 2' : 'SEMESTER 1'}`) !== null && _b !== void 0 ? _b : 'none';
-                        const zd = Object.assign(Object.assign({}, sv), { course: (_c = sv === null || sv === void 0 ? void 0 : sv.course) === null || _c === void 0 ? void 0 : _c.title, code: (_d = sv === null || sv === void 0 ? void 0 : sv.course) === null || _d === void 0 ? void 0 : _d.id, credit: (_e = sv === null || sv === void 0 ? void 0 : sv.course) === null || _e === void 0 ? void 0 : _e.creditHour, practical: (_f = sv === null || sv === void 0 ? void 0 : sv.course) === null || _f === void 0 ? void 0 : _f.practicalHour, theory: (_g = sv === null || sv === void 0 ? void 0 : sv.course) === null || _g === void 0 ? void 0 : _g.theoryHour, type: sv === null || sv === void 0 ? void 0 : sv.type });
+                        const index = `LEVEL ${Math.ceil(sv.semesterNum / 2) * 100}, ${sv.semesterNum % 2 == 0 ? 'SEMESTER 2' : 'SEMESTER 1'}` || 'none';
+                        const zd = Object.assign(Object.assign({}, sv), { course: (_b = sv === null || sv === void 0 ? void 0 : sv.course) === null || _b === void 0 ? void 0 : _b.title, code: (_c = sv === null || sv === void 0 ? void 0 : sv.course) === null || _c === void 0 ? void 0 : _c.id, credit: (_d = sv === null || sv === void 0 ? void 0 : sv.course) === null || _d === void 0 ? void 0 : _d.creditHour, practical: (_e = sv === null || sv === void 0 ? void 0 : sv.course) === null || _e === void 0 ? void 0 : _e.practicalHour, theory: (_f = sv === null || sv === void 0 ? void 0 : sv.course) === null || _f === void 0 ? void 0 : _f.theoryHour, type: sv === null || sv === void 0 ? void 0 : sv.type });
                         // Data By Level - Semester
                         if (mdata.has(index)) {
                             mdata.set(index, [...mdata.get(index), Object.assign({}, zd)]);
@@ -1602,7 +1634,7 @@ class AisController {
                         }
                     }
                     for (const sv of resp === null || resp === void 0 ? void 0 : resp.structmeta) {
-                        const index = (_h = `LEVEL ${Math.ceil(sv.semesterNum / 2) * 100}, ${sv.semesterNum % 2 == 0 ? 'SEMESTER 2' : 'SEMESTER 1'}`) !== null && _h !== void 0 ? _h : 'none';
+                        const index = `LEVEL ${Math.ceil(sv.semesterNum / 2) * 100}, ${sv.semesterNum % 2 == 0 ? 'SEMESTER 2' : 'SEMESTER 1'}` || 'none';
                         const zd = Object.assign({}, sv);
                         // Data By Level - Semester
                         if (sdata.has(index)) {
@@ -1626,7 +1658,7 @@ class AisController {
         });
     }
     fetchProgramStudents(req, res) {
-        var _a, _b;
+        var _a;
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const resp = yield ais.program.findUnique({
@@ -1652,7 +1684,7 @@ class AisController {
                 if ((_a = resp === null || resp === void 0 ? void 0 : resp.student) === null || _a === void 0 ? void 0 : _a.length) {
                     var mdata = new Map();
                     for (const sv of resp === null || resp === void 0 ? void 0 : resp.student) {
-                        const index = (_b = `LEVEL ${Math.ceil(sv.semesterNum / 2) * 100}`) !== null && _b !== void 0 ? _b : 'none';
+                        const index = `LEVEL ${Math.ceil(sv.semesterNum / 2) * 100}` || 'none';
                         const zd = Object.assign({}, sv);
                         // Data By Level - Semester
                         if (mdata.has(index)) {
@@ -2202,9 +2234,9 @@ class AisController {
                 const { indexno } = req.body;
                 delete req.body.indexno;
                 // Check If Student Exist with Index number
-                const st = yield ais.student.findFirst({ where: { indexno }, include: { program: { select: { semesterTotal: true } } } });
+                const st = yield ais.student.findFirst({ where: { indexno, deferStatus: false, completeStatus: false }, include: { program: { select: { semesterTotal: true } } } });
                 if (!st)
-                    throw ("No Student Index Number !");
+                    throw ("Student can't be progressed, check indexno,defer or complete status!");
                 // Fetch Active Session for Student - AUCC Only
                 const session = ((st.semesterNum <= 2 && st.entrySemesterNum == 1) || (st.semesterNum <= 4 && st.entrySemesterNum == 3)) && ['01', '1'].includes((0, moment_1.default)(st.entryDate).format("MM"))
                     ? yield ais.session.findFirst({ where: { default: true, tag: 'SUB' } })
@@ -2237,7 +2269,7 @@ class AisController {
             }
             catch (error) {
                 console.log(error);
-                return res.status(500).json({ message: error.message });
+                return res.status(202).json({ message: error.message });
             }
         });
     }
@@ -2251,7 +2283,7 @@ class AisController {
                 // AUCC only
                 const students = session.tag == 'SUB'
                     ? yield ais.$queryRaw `select s.id,indexno,semesterNum,p.semesterTotal from ais_student s left join ais_program p on s.programId = p.id where (((semesterNum <= 2 and entrySemesterNum = 1) or (semesterNum <= 4 and entrySemesterNum = 3)) and date_format(entryDate,'%m') = '01') and completeStatus = 0 and deferStatus = 0 and indexno is not NULL`
-                    : yield ais.$queryRaw `select s.id,indexno,semesterNum,p.semesterTotal from ais_student s left join ais_program p on s.programId = p.id where ((((semesterNum > 2 and entrySemesterNum = 1) or (semesterNum > 4 and entrySemesterNum = 3)) and date_format(entryDate,'%m') = '01') or (date_format(entryDate,'%m') <> '01')) and completeStatus = 0 and deferStatus = 0 and indexno is not NULL`;
+                    : yield ais.$queryRaw `select s.id,indexno,semesterNum,p.semesterTotal from ais_student s left join ais_program p on s.programId = p.id where ((((semesterNum > 2 and entrySemesterNum = 1) or (semesterNum > 4 and entrySemesterNum = 3)) and date_format(entryDate,'%m') = '01') or (date_format(entryDate,'%m') <> '01') or entryDate is null) and completeStatus = 0 and deferStatus = 0 and indexno is not NULL`;
                 // MLK & Others only
                 // const students = await ais.$queryRaw`select indexno,semesterNum from ais_student where completeStatus = 0 and deferStatus = 0 and indexno is not NULL`;
                 const resp = yield Promise.all(students.map((st) => __awaiter(this, void 0, void 0, function* () {
@@ -2264,13 +2296,15 @@ class AisController {
                     yield ais.student.update({
                         where: { id: st === null || st === void 0 ? void 0 : st.id },
                         data: {
-                            semesterNum: ((st === null || st === void 0 ? void 0 : st.semesterNum) + 1 > (st === null || st === void 0 ? void 0 : st.semesterTotal) ? 0 : (st === null || st === void 0 ? void 0 : st.semesterNum) + 1),
+                            semesterNum: ((st === null || st === void 0 ? void 0 : st.semesterNum) + 1 > (st === null || st === void 0 ? void 0 : st.semesterTotal) ? 0 : Math.min(st === null || st === void 0 ? void 0 : st.semesterTotal, (st === null || st === void 0 ? void 0 : st.semesterNum) + 1)),
                             completeStatus: ((st === null || st === void 0 ? void 0 : st.semesterNum) + 1 > (st === null || st === void 0 ? void 0 : st.semesterTotal) ? true : false)
                         }
                     });
+                    // Update Session Progression Status
+                    yield ais.session.update({ where: { id: sessionId }, data: { progressStudent: true } });
                     // Return Response
                     return ais.activityProgress.create({
-                        data: Object.assign({ student: { connect: { indexno: st.indexno } }, semesterNum: st.semesterNum + 1, status: true }, session && ({ session: { connect: { id: session === null || session === void 0 ? void 0 : session.id } } }))
+                        data: Object.assign({ student: { connect: { indexno: st.indexno } }, semesterNum: ((st === null || st === void 0 ? void 0 : st.semesterNum) + 1 > (st === null || st === void 0 ? void 0 : st.semesterTotal) ? 0 : Math.min(st === null || st === void 0 ? void 0 : st.semesterTotal, (st === null || st === void 0 ? void 0 : st.semesterNum) + 1)), status: true }, session && ({ session: { connect: { id: session === null || session === void 0 ? void 0 : session.id } } }))
                     });
                 })));
                 if (resp) {
@@ -2520,8 +2554,8 @@ class AisController {
                         // if(st?.student?.semesterNum < 5) return sheet?.programId == st?.student?.programId && sheet?.studyMode == st?.student?.studyMode;
                         // return sheet?.programId == st?.student?.programId && sheet?.majorId == st?.student?.majorId && sheet?.studyMode == st?.student?.studyMode;
                         if (((_a = st === null || st === void 0 ? void 0 : st.student) === null || _a === void 0 ? void 0 : _a.semesterNum) < 5)
-                            return (sheet === null || sheet === void 0 ? void 0 : sheet.studyMode) == ((_b = st === null || st === void 0 ? void 0 : st.student) === null || _b === void 0 ? void 0 : _b.studyMode);
-                        return (sheet === null || sheet === void 0 ? void 0 : sheet.majorId) == ((_c = st === null || st === void 0 ? void 0 : st.student) === null || _c === void 0 ? void 0 : _c.majorId) && (sheet === null || sheet === void 0 ? void 0 : sheet.studyMode) == ((_d = st === null || st === void 0 ? void 0 : st.student) === null || _d === void 0 ? void 0 : _d.studyMode);
+                            return (sheet === null || sheet === void 0 ? void 0 : sheet.studyMode) == ((_b = st === null || st === void 0 ? void 0 : st.student) === null || _b === void 0 ? void 0 : _b.studyMode); // Level 100 - 200 dont have majors assigned
+                        return (sheet === null || sheet === void 0 ? void 0 : sheet.majorId) == ((_c = st === null || st === void 0 ? void 0 : st.student) === null || _c === void 0 ? void 0 : _c.majorId) && (sheet === null || sheet === void 0 ? void 0 : sheet.studyMode) == ((_d = st === null || st === void 0 ? void 0 : st.student) === null || _d === void 0 ? void 0 : _d.studyMode); // Level 300 and Above should have Majors 
                     });
                     let resp = mounts === null || mounts === void 0 ? void 0 : mounts.map((row) => {
                         var _a, _b;
@@ -2784,11 +2818,40 @@ class AisController {
                 const resp = yield ais.sheet.findUnique({ where: { id: req.params.id } });
                 if (resp) {
                     let { courseId, programId, unitId, majorId, sessionId, semesterNum, studyMode } = resp;
+                    // Fetch Affected Students
+                    const assessments = yield ais.assessment.findMany({
+                        where: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, sessionId && ({ sessionId })), courseId && ({ courseId })), programId && ({ student: { programId } })), majorId && ({ student: { majorId } })), studyMode && ({ student: { studyMode } })), semesterNum && ({ semesterNum: Number(semesterNum) })),
+                        include: { scheme: true }
+                    });
+                    // Generate Resit Data on Sheet Close
+                    //const rsession = await ais.resitSession.findFirst({ where: { default: true }});
+                    const all = yield Promise.all(assessments.filter((a) => a.totalScore < a.scheme.passMark).map((r) => __awaiter(this, void 0, void 0, function* () {
+                        const { sessionId, indexno, courseId, schemeId, semesterNum } = r;
+                        return yield ais.resit.upsert({
+                            where: {
+                                resitId: {
+                                    indexno,
+                                    courseId,
+                                    trailSessionId: sessionId,
+                                }
+                            },
+                            create: {
+                                semesterNum: Number(semesterNum),
+                                totalScore: null,
+                                trailSession: { connect: { id: sessionId } },
+                                course: { connect: { id: courseId } },
+                                scheme: { connect: { id: schemeId } },
+                                student: { connect: { indexno: indexno } },
+                            },
+                            update: {}
+                        });
+                    })));
                     // Update Student Assessment Publish Status
                     yield ais.assessment.updateMany({
                         where: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, sessionId && ({ sessionId })), courseId && ({ courseId })), programId && ({ student: { programId } })), majorId && ({ student: { majorId } })), studyMode && ({ student: { studyMode } })), semesterNum && ({ semesterNum: Number(semesterNum) })),
-                        data: { status: true }
+                        data: { status: true },
                     });
+                    console.log(all);
                     // Update Sheet
                     yield ais.sheet.update({ where: { id: req.params.id }, data: { finalized: true } });
                     // Return Response
@@ -2812,7 +2875,7 @@ class AisController {
                 if (resp) {
                     let { courseId, programId, unitId, majorId, sessionId, semesterNum, studyMode } = resp;
                     // Update Student Assessment Publish Status
-                    yield ais.assessment.updateMany({
+                    const ups = yield ais.assessment.updateMany({
                         where: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, sessionId && ({ sessionId })), courseId && ({ courseId })), programId && ({ student: { programId } })), majorId && ({ student: { majorId } })), studyMode && ({ student: { studyMode } })), semesterNum && ({ semesterNum: Number(semesterNum) })),
                         data: { status: true }
                     });
@@ -2861,11 +2924,14 @@ class AisController {
     updateSheet(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                console.log(req.body);
+                let { courseId, programId, unitId, majorId, sessionId, semesterNum, studyMode, assignStaffId } = req.body;
+                console.log("session: ", sessionId);
                 const resp = yield ais.sheet.update({
                     where: {
                         id: req.params.id
                     },
-                    data: Object.assign({}, req.body)
+                    data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, studyMode && ({ studyMode })), semesterNum && ({ semesterNum: Number(semesterNum) })), !majorId && ({ majorId: null })), !unitId && ({ unitId: null })), sessionId && ({ session: { connect: { id: sessionId } } })), courseId && ({ course: { connect: { id: courseId } } })), programId && ({ program: { connect: { id: programId } } })), unitId && ({ unit: { connect: { id: unitId } } })), assignStaffId && ({ assignee: { connect: { staffNo: assignStaffId } } }))
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -2989,6 +3055,7 @@ class AisController {
                         // }))
                         // resp = await ais.assessment.createMany({ data });
                         data = yield Promise.all(meta.map((r) => __awaiter(this, void 0, void 0, function* () {
+                            var _b;
                             const as = yield ais.assessment.findFirst({ where: { sessionId, courseId: r.courseId, indexno: r.indexno } });
                             const cs = yield ais.course.findUnique({ where: { id: r.courseId } });
                             // Log Existing Data
@@ -2996,7 +3063,7 @@ class AisController {
                             // Upsert New Data
                             return yield ais.assessment.upsert({
                                 where: {
-                                    id: as === null || as === void 0 ? void 0 : as.id
+                                    id: (_b = as === null || as === void 0 ? void 0 : as.id) !== null && _b !== void 0 ? _b : ''
                                     // sessionId,
                                     // courseId: r.courseId,
                                     // indexno: r.indexno
@@ -3175,6 +3242,902 @@ class AisController {
             }
         });
     }
+    /* Resit */
+    fetchResits(req, res) {
+        var _a, _b;
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, pageSize = 6, keyword = '' } = req.query;
+            const offset = (page - 1) * pageSize;
+            let searchCondition = {};
+            try {
+                if (keyword)
+                    searchCondition = {
+                        where: {
+                            OR: [
+                                { indexno: { contains: keyword } },
+                                { student: { fname: { contains: keyword } } },
+                                { student: { lname: { contains: keyword } } },
+                                { course: { title: { contains: keyword } } },
+                                { course: { id: { contains: keyword } } },
+                                { trailSession: { title: { contains: keyword } } },
+                            ],
+                        },
+                    };
+                const resp = yield ais.$transaction([
+                    ais.resit.count(Object.assign({}, (searchCondition))),
+                    ais.resit.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), include: {
+                            session: true,
+                            trailSession: true,
+                            registerSession: true,
+                            course: true,
+                            student: { include: { program: true } },
+                        } }))
+                ]);
+                //if(resp && resp[1]?.length){
+                return res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                // } else {
+                //    return res.status(202).json({ message: `no records found` })
+                // }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchResit(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.resit.findUnique({
+                    where: { id: req.params.id },
+                    include: { session: true }
+                });
+                if (resp) {
+                    return res.status(200).json(resp);
+                }
+                else {
+                    return res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    postResit(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const createdBy = req.userId;
+                const { sessionId, schemeId, type, title } = req.body;
+                const resp = yield ais.resit.create({
+                    data: Object.assign(Object.assign(Object.assign({ title,
+                        type }, createdBy && ({ creator: { connect: { staffNo: createdBy } } })), sessionId && ({ session: { connect: { id: sessionId } } })), schemeId && ({ scheme: { connect: { id: schemeId } } })),
+                });
+                if (resp) {
+                    res.status(200).json({ success: true, data: resp });
+                }
+                else {
+                    res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    updateResit(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const createdBy = req.userId;
+                const { sessionId, schemeId, type, title } = req.body;
+                const resp = yield ais.resit.update({
+                    where: { id: req.params.id },
+                    data: Object.assign(Object.assign(Object.assign({ title,
+                        type }, createdBy && ({ creator: { connect: { staffNo: createdBy } } })), sessionId && ({ session: { connect: { id: sessionId } } })), schemeId && ({ scheme: { connect: { id: schemeId } } })),
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    deleteResit(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.resit.delete({ where: { id: req.params.id } });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Resit Session */
+    fetchResitSessions(req, res) {
+        var _a, _b;
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, pageSize = 6, keyword = '' } = req.query;
+            const offset = (page - 1) * pageSize;
+            let searchCondition = {};
+            try {
+                if (keyword)
+                    searchCondition = {
+                        where: {
+                            OR: [
+                                { title: { contains: keyword } },
+                            ],
+                        },
+                    };
+                const resp = yield ais.$transaction([
+                    ais.resitSession.count(Object.assign({}, (searchCondition))),
+                    ais.resitSession.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize) }))
+                ]);
+                //if(resp && resp[1]?.length){
+                return res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                // } else {
+                //    return res.status(202).json({ message: `no records found` })
+                // }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchResitSessionList(req, res) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.resit.findMany({
+                    where: { sessionId: req.params.id },
+                    include: { course: true, student: true, scheme: true }
+                });
+                if (resp.length) {
+                    const grades = (_a = resp[0].scheme) === null || _a === void 0 ? void 0 : _a.gradeMeta;
+                    const dm = yield Promise.all(resp.map((r) => __awaiter(this, void 0, void 0, function* () {
+                        return (Object.assign(Object.assign({}, r), { grade: yield (0, helper_1.getGrade)(r === null || r === void 0 ? void 0 : r.totalScore, grades) }));
+                    })));
+                    let courseMap = new Map();
+                    for (let d of dm) {
+                        if (courseMap.has(`${(_b = d === null || d === void 0 ? void 0 : d.course) === null || _b === void 0 ? void 0 : _b.id} - ${(_c = d === null || d === void 0 ? void 0 : d.course) === null || _c === void 0 ? void 0 : _c.title}`)) {
+                            let cs = courseMap.get(`${(_d = d === null || d === void 0 ? void 0 : d.course) === null || _d === void 0 ? void 0 : _d.id} - ${(_e = d === null || d === void 0 ? void 0 : d.course) === null || _e === void 0 ? void 0 : _e.title}`);
+                            cs.push(d);
+                            courseMap.set(`${(_f = d === null || d === void 0 ? void 0 : d.course) === null || _f === void 0 ? void 0 : _f.id} - ${(_g = d === null || d === void 0 ? void 0 : d.course) === null || _g === void 0 ? void 0 : _g.title}`, cs);
+                        }
+                        else {
+                            courseMap.set(`${(_h = d === null || d === void 0 ? void 0 : d.course) === null || _h === void 0 ? void 0 : _h.id} - ${(_j = d === null || d === void 0 ? void 0 : d.course) === null || _j === void 0 ? void 0 : _j.title}`, [d]);
+                        }
+                    }
+                    // Return Response
+                    return res.status(200).json(Array.from(courseMap));
+                }
+                else {
+                    return res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchResitSession(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.resitSession.findUnique({
+                    where: { id: req.params.id },
+                });
+                if (resp) {
+                    return res.status(200).json(resp);
+                }
+                else {
+                    return res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    saveResitSession(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Fetch Active Semester
+                const { count, data } = req.body;
+                console.log(req.body);
+                let mounts = [];
+                for (let i = 0; i < count; i++) {
+                    const totalScore = data[`${i}_totalScore`] ? parseFloat(data[`${i}_totalScore`]) : null;
+                    const id = data[`${i}_id`];
+                    mounts.push({
+                        where: { id },
+                        data: {
+                            totalScore,
+                            taken: true
+                        }
+                    });
+                }
+                // Bulk Score Update 
+                const resp = yield Promise.all(mounts === null || mounts === void 0 ? void 0 : mounts.map((query) => __awaiter(this, void 0, void 0, function* () {
+                    return yield ais.resit.updateMany(query);
+                })));
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    postResitSession(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.resitSession.create({
+                    data: req.body,
+                });
+                if (resp) {
+                    res.status(200).json({ success: true, data: resp });
+                }
+                else {
+                    res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    updateResitSession(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.resitSession.update({
+                    where: { id: req.params.id },
+                    data: req.body,
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    deleteResitSession(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.resitSession.delete({ where: { id: req.params.id } });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Graduate Session */
+    fetchGraduateSessions(req, res) {
+        var _a, _b;
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, pageSize = 9, keyword = '' } = req.query;
+            const offset = (page - 1) * pageSize;
+            let searchCondition = {};
+            try {
+                if (keyword)
+                    searchCondition = {
+                        where: {
+                            OR: [
+                                { title: { contains: keyword } },
+                                { description: { contains: keyword } },
+                            ],
+                        }
+                    };
+                const resp = yield ais.$transaction([
+                    ais.graduateSession.count(Object.assign({}, (searchCondition))),
+                    ais.graduateSession.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), include: {
+                            _count: {
+                                select: { graduate: true }
+                            }
+                        } }))
+                ]);
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchGraduateSessionList(req, res) {
+        var _a, _b, _c, _d, _e, _f, _g, _h;
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduate.findMany({
+                    where: { sessionId: req.params.id },
+                    include: { student: { include: { program: true } } }
+                });
+                if (resp.length) {
+                    const dm = resp;
+                    let programMap = new Map();
+                    for (let d of dm) {
+                        if (programMap.has((_b = (_a = d === null || d === void 0 ? void 0 : d.student) === null || _a === void 0 ? void 0 : _a.program) === null || _b === void 0 ? void 0 : _b.longName)) {
+                            let cs = programMap.get((_d = (_c = d === null || d === void 0 ? void 0 : d.student) === null || _c === void 0 ? void 0 : _c.program) === null || _d === void 0 ? void 0 : _d.longName);
+                            cs.push(d);
+                            programMap.set((_f = (_e = d === null || d === void 0 ? void 0 : d.student) === null || _e === void 0 ? void 0 : _e.program) === null || _f === void 0 ? void 0 : _f.longName, cs);
+                        }
+                        else {
+                            programMap.set((_h = (_g = d === null || d === void 0 ? void 0 : d.student) === null || _g === void 0 ? void 0 : _g.program) === null || _h === void 0 ? void 0 : _h.longName, [d]);
+                        }
+                    }
+                    // Return Response
+                    return res.status(200).json(Array.from(programMap));
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    generateGraduateSessionList(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduateSession.findFirst({ where: { default: true } });
+                if (resp) {
+                    // Fetch All students with Completed Status, Graduated Status with Program link
+                    let sts = yield ais.student.findMany({
+                        where: { completeStatus: true, graduateStatus: false, indexno: { not: null } },
+                        include: { program: true },
+                    });
+                    sts = yield Promise.all(sts.map((st) => __awaiter(this, void 0, void 0, function* () {
+                        var _a, _b, _c;
+                        const as = yield ais.assessment.aggregate({ _sum: { credit: true }, where: { indexno: st.indexno } });
+                        let ax = yield ais.assessment.findMany({ where: { indexno: st.indexno }, include: { scheme: true } });
+                        ax = ax.reduce((acc, r) => {
+                            var _a;
+                            const grades = (_a = r.scheme) === null || _a === void 0 ? void 0 : _a.gradeMeta;
+                            const gv = (0, helper_1.getGradePoint)((r.totalScore || 0), grades);
+                            return acc + (gv * r.credit);
+                        }, 0);
+                        const cgpa = (ax / (((_a = as === null || as === void 0 ? void 0 : as._sum) === null || _a === void 0 ? void 0 : _a.credit) || 0)).toFixed(1);
+                        const rs = yield ais.resit.count({ where: { indexno: st.indexno, taken: false } }); // Check From Resit Table, whether student doesnt have pending and untaken resits
+                        const isPassedCreditTotal = (((_b = as === null || as === void 0 ? void 0 : as._sum) === null || _b === void 0 ? void 0 : _b.credit) || 0) >= ((_c = st === null || st === void 0 ? void 0 : st.program) === null || _c === void 0 ? void 0 : _c.creditTotal); // Check Whether total credit hours in assessment is greater or equal to Program credit minimum
+                        const isPassedResit = !Boolean(rs);
+                        if (isPassedCreditTotal && isPassedResit)
+                            return yield ais.graduate.upsert({
+                                where: { indexno: st === null || st === void 0 ? void 0 : st.indexno },
+                                create: { cgpa, indexno: st === null || st === void 0 ? void 0 : st.indexno, sessionId: resp === null || resp === void 0 ? void 0 : resp.id },
+                                update: { cgpa }
+                            });
+                        return;
+                    })));
+                    // Return Response
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchGraduateSession(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduateSession.findUnique({
+                    where: { id: req.params.id },
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    postGraduateSession(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduateSession.create({
+                    data: Object.assign({}, req.body),
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    updateGraduateSession(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduateSession.update({
+                    where: {
+                        id: req.params.id
+                    },
+                    data: Object.assign({}, req.body)
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    deleteGraduateSession(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduateSession.delete({
+                    where: { id: req.params.id }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Graduate */
+    fetchGraduates(req, res) {
+        var _a, _b;
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, pageSize = 9, keyword = '' } = req.query;
+            const offset = (page - 1) * pageSize;
+            let searchCondition = {};
+            try {
+                if (keyword)
+                    searchCondition = {
+                        where: {
+                            OR: [
+                                { student: { id: { contains: keyword } } },
+                                { student: { indexno: { contains: keyword } } },
+                                { student: { fname: { contains: keyword } } },
+                                { student: { lname: { contains: keyword } } },
+                                { session: { title: { contains: keyword } } },
+                            ],
+                        }
+                    };
+                const resp = yield ais.$transaction([
+                    ais.graduate.count(Object.assign({}, (searchCondition))),
+                    ais.graduate.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), include: {
+                            student: { include: { program: true } },
+                            session: true
+                        } }))
+                ]);
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchGraduateList(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduate.findMany({
+                    where: { status: true },
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchGraduate(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduate.findUnique({
+                    where: {
+                        id: req.params.id
+                    },
+                    include: { program: true }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    postGraduate(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduate.create({
+                    data: Object.assign({}, req.body),
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    updateGraduate(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduate.update({
+                    where: {
+                        id: req.params.id
+                    },
+                    data: Object.assign({}, req.body)
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    deleteGraduate(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.graduate.delete({
+                    where: { id: req.params.id }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Circulars */
+    fetchNotices(req, res) {
+        var _a, _b;
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, pageSize = 9, keyword = '' } = req.query;
+            const offset = (page - 1) * pageSize;
+            let searchCondition = {};
+            try {
+                if (keyword)
+                    searchCondition = {
+                        where: {
+                            OR: [
+                                { reference: { contains: keyword } },
+                                { title: { contains: keyword } },
+                                { receiver: { contains: keyword } },
+                            ],
+                        }
+                    };
+                const resp = yield ais.$transaction([
+                    ais.informer.count(Object.assign({}, (searchCondition))),
+                    ais.informer.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize) }))
+                ]);
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    sendNotice(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.informer.findUnique({
+                    where: { id: req.body.noticeId }
+                });
+                if (resp) {
+                    let receivers = [];
+                    if (resp.receiver == 'APPLICANT') {
+                        const rs = yield ais.applicant.findMany({
+                            where: { session: { default: true }, profileId: { not: null } },
+                            include: { profile: { select: { phone: true } } }
+                        });
+                        receivers = rs === null || rs === void 0 ? void 0 : rs.map((r) => { var _a; return (_a = r === null || r === void 0 ? void 0 : r.profile) === null || _a === void 0 ? void 0 : _a.phone; });
+                    }
+                    else if (resp.receiver == 'FRESHER') {
+                        const rs = yield ais.student.findMany({
+                            where: { completeStatus: false, deferStatus: false, phone: { not: null } },
+                            select: { semesterNum: true, entrySemesterNum: true, phone: true },
+                        });
+                        receivers = rs === null || rs === void 0 ? void 0 : rs.filter((r) => ((r.semesterNum == r.entrySemesterNum) || (r.semesterNum == r.entrySemesterNum + 1))).map((r) => r === null || r === void 0 ? void 0 : r.phone);
+                    }
+                    else if (resp.receiver == 'FINAL') {
+                        const rs = yield ais.student.findMany({
+                            where: { completeStatus: false, deferStatus: false, phone: { not: null } },
+                            select: { semesterNum: true, phone: true, program: { select: { semesterTotal: true } } },
+                        });
+                        receivers = rs === null || rs === void 0 ? void 0 : rs.filter((r) => ((r.semesterNum == r.program.semesterTotal) || (r.semesterNum == r.program.semesterTotal - 1))).map((r) => r === null || r === void 0 ? void 0 : r.phone);
+                    }
+                    else if (resp.receiver == 'STUDENT') {
+                        const rs = yield ais.student.findMany({
+                            where: { completeStatus: false, deferStatus: false, phone: { not: null } },
+                            select: { phone: true },
+                        });
+                        receivers = rs === null || rs === void 0 ? void 0 : rs.map((r) => r === null || r === void 0 ? void 0 : r.phone);
+                    }
+                    else if (resp.receiver == 'UNDERGRAD') {
+                        const rs = yield ais.student.findMany({
+                            where: { completeStatus: false, deferStatus: false, program: { category: 'UG' }, phone: { not: null } },
+                            select: { phone: true },
+                        });
+                        receivers = rs === null || rs === void 0 ? void 0 : rs.map((r) => r === null || r === void 0 ? void 0 : r.phone);
+                    }
+                    else if (resp.receiver == 'POSTGRAD') {
+                        const rs = yield ais.student.findMany({
+                            where: { completeStatus: false, deferStatus: false, program: { category: 'PG' }, phone: { not: null } },
+                            select: { phone: true },
+                        });
+                        receivers = rs === null || rs === void 0 ? void 0 : rs.map((r) => r === null || r === void 0 ? void 0 : r.phone);
+                    }
+                    else if (resp.receiver == 'ALUMNI') {
+                        const rs = yield ais.student.findMany({
+                            where: { completeStatus: true, graduateStatus: true, phone: { not: null } },
+                            select: { phone: true },
+                        });
+                        receivers = rs === null || rs === void 0 ? void 0 : rs.map((r) => r === null || r === void 0 ? void 0 : r.phone);
+                    }
+                    else if (resp.receiver == 'STAFF') {
+                        const rs = yield ais.staff.findMany({
+                            where: { status: true, phone: { not: null } },
+                            select: { phone: true },
+                        });
+                        receivers = rs === null || rs === void 0 ? void 0 : rs.map((r) => r === null || r === void 0 ? void 0 : r.phone);
+                    }
+                    else if (resp.receiver == 'HOD') {
+                        const rs = yield ais.unit.findMay({
+                            where: { type: 'ACADEMIC', levelNum: 2 },
+                            select: { phone: true, headStaffNo: true },
+                        });
+                        receivers = yield Promise.all(rs === null || rs === void 0 ? void 0 : rs.map((r) => __awaiter(this, void 0, void 0, function* () {
+                            const st = yield ais.staff.findFirst({ where: { staffNo: r === null || r === void 0 ? void 0 : r.headStaffNo, phone: { not: null } } });
+                            return st === null || st === void 0 ? void 0 : st.phone;
+                        })));
+                    }
+                    else if (resp.receiver == 'DEAN') {
+                        const rs = yield ais.unit.findMay({
+                            where: { type: 'ACADEMIC', levelNum: 1 },
+                            select: { phone: true, headStaffNo: true },
+                        });
+                        receivers = yield Promise.all(rs === null || rs === void 0 ? void 0 : rs.map((r) => __awaiter(this, void 0, void 0, function* () {
+                            const st = yield ais.staff.findFirst({ where: { staffNo: r === null || r === void 0 ? void 0 : r.headStaffNo, phone: { not: null } } });
+                            return st === null || st === void 0 ? void 0 : st.phone;
+                        })));
+                    }
+                    else if (resp.receiver == 'ASSESSOR') {
+                        const rs = yield ais.unit.findMay({
+                            where: { type: 'ACADEMIC', levelNum: 1 },
+                            select: { phone: true, headStaffNo: true },
+                        });
+                        receivers = yield Promise.all(rs === null || rs === void 0 ? void 0 : rs.map((r) => __awaiter(this, void 0, void 0, function* () {
+                            const st = yield ais.staff.findFirst({ where: { staffNo: r === null || r === void 0 ? void 0 : r.headStaffNo, phone: { not: null } } });
+                            return st === null || st === void 0 ? void 0 : st.phone;
+                        })));
+                    }
+                    else if (resp.receiver == 'DEBTOR') {
+                        const rs = yield ais.student.findMany({
+                            where: { completeStatus: true, deferStatus: true, accountNet: { gt: 0 }, phone: { not: null } },
+                            select: { phone: true },
+                        });
+                        receivers = rs === null || rs === void 0 ? void 0 : rs.map((r) => r === null || r === void 0 ? void 0 : r.phone);
+                    }
+                    // Clean Receivers phone numbers
+                    const send = receivers === null || receivers === void 0 ? void 0 : receivers.map((phone) => __awaiter(this, void 0, void 0, function* () {
+                        const mobile = phone.replace('-', '').replace(' ', '').replace('+233', '0').replace('.', '').replace('_', '');
+                        console.log(mobile);
+                        if ((mobile === null || mobile === void 0 ? void 0 : mobile.length) == 10 || (mobile === null || mobile === void 0 ? void 0 : mobile.length) == 11)
+                            return yield sms(mobile, resp.smsContent);
+                        return;
+                    }));
+                    // Return Response
+                    res.status(200).json(send);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchNotice(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.informer.findUnique({
+                    where: {
+                        id: req.params.id
+                    }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    postNotice(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.informer.create({
+                    data: Object.assign({}, req.body),
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    updateNotice(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.informer.update({
+                    where: {
+                        id: req.params.id
+                    },
+                    data: Object.assign({}, req.body)
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    deleteNotice(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.informer.delete({
+                    where: { id: req.params.id }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
     /* Deferments */
     fetchDeferments(req, res) {
         var _a, _b;
@@ -3198,10 +4161,7 @@ class AisController {
                 const resp = yield ais.$transaction([
                     ais.activityDefer.count(Object.assign({}, (searchCondition))),
                     ais.activityDefer.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), include: {
-                            // _count: {
-                            //    select: { program: true }
-                            // }
-                            student: true,
+                            student: { include: { program: true } },
                             session: true
                         } }))
                 ]);
@@ -3243,13 +4203,19 @@ class AisController {
     fetchDeferment(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const resp = yield ais.activityDefer.findUnique({
+                let resp = yield ais.activityDefer.findUnique({
                     where: {
                         id: req.params.id
                     },
-                    include: { program: true }
+                    include: { student: { include: { program: true } }, session: true }
                 });
                 if (resp) {
+                    // Calculate Resumption 
+                    // Fetch Deferment Letter
+                    const letter = yield ais.letter.findFirst({ where: { tag: 'def' } });
+                    resp.letter = Object.assign(Object.assign({}, letter), { student: resp === null || resp === void 0 ? void 0 : resp.student });
+                    console.log(resp);
+                    // Return Response
                     res.status(200).json(resp);
                 }
                 else {
@@ -3265,8 +4231,11 @@ class AisController {
     postDeferment(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                const { indexno, sessionId, semesterNum, reason, durationInYears, status, start, end } = req.body;
                 const resp = yield ais.activityDefer.create({
-                    data: Object.assign({}, req.body),
+                    data: Object.assign(Object.assign({ semesterNum: Number(semesterNum), reason, durationInYears: Number(durationInYears), status,
+                        start,
+                        end }, indexno && ({ student: { connect: { indexno } } })), sessionId && ({ session: { connect: { id: sessionId } } })),
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -3284,11 +4253,14 @@ class AisController {
     updateDeferment(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
+                const { indexno, sessionId, semesterNum, reason, durationInYears, status, start, end } = req.body;
+                delete req.body.indexno;
+                delete req.body.sessionId;
                 const resp = yield ais.activityDefer.update({
-                    where: {
-                        id: req.params.id
-                    },
-                    data: Object.assign({}, req.body)
+                    where: { id: req.params.id },
+                    data: Object.assign(Object.assign({ semesterNum: Number(semesterNum), reason, durationInYears: Number(durationInYears), status,
+                        start,
+                        end }, indexno && ({ student: { connect: { indexno } } })), sessionId && ({ session: { connect: { id: sessionId } } }))
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -3307,6 +4279,287 @@ class AisController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 const resp = yield ais.activityDefer.delete({
+                    where: { id: req.params.id }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Service Letters */
+    fetchLetters(req, res) {
+        var _a, _b;
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, pageSize = 9, keyword = '' } = req.query;
+            const offset = (page - 1) * pageSize;
+            let searchCondition = {};
+            try {
+                if (keyword)
+                    searchCondition = {
+                        where: {
+                            OR: [
+                                { tag: { contains: keyword } },
+                                { title: { contains: keyword } },
+                            ],
+                        }
+                    };
+                const resp = yield ais.$transaction([
+                    ais.letter.count(Object.assign({}, (searchCondition))),
+                    ais.letter.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize) }))
+                ]);
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchLetterList(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.letter.findMany({
+                    where: { status: true },
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchLetter(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.letter.findUnique({
+                    where: {
+                        id: req.params.id
+                    }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    postLetter(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.letter.create({
+                    data: Object.assign({}, req.body),
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    updateLetter(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.letter.update({
+                    where: {
+                        id: req.params.id
+                    },
+                    data: Object.assign({}, req.body)
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    deleteLetter(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.letter.delete({
+                    where: { id: req.params.id }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    /* Transwift  */
+    fetchTranswifts(req, res) {
+        var _a, _b;
+        return __awaiter(this, void 0, void 0, function* () {
+            const { page = 1, pageSize = 9, keyword = '' } = req.query;
+            const offset = (page - 1) * pageSize;
+            let searchCondition = {};
+            try {
+                if (keyword)
+                    searchCondition = {
+                        where: {
+                            OR: [
+                                { tag: { contains: keyword } },
+                                { title: { contains: keyword } },
+                            ],
+                        }
+                    };
+                const resp = yield ais.$transaction([
+                    ais.transwift.count(Object.assign({}, (searchCondition))),
+                    ais.transwift.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), include: {
+                            student: { include: { program: true } },
+                            issuer: true,
+                            transact: { include: { transtype: true } }
+                        } }))
+                ]);
+                //if(resp && resp[1]?.length){
+                res.status(200).json({
+                    totalPages: (_a = Math.ceil(resp[0] / pageSize)) !== null && _a !== void 0 ? _a : 0,
+                    totalData: (_b = resp[1]) === null || _b === void 0 ? void 0 : _b.length,
+                    data: resp[1],
+                });
+                //} else {
+                //res.status(202).json({ message: `no records found` })
+                //}
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchTranswiftList(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.transwift.findMany({
+                    where: { status: true },
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    fetchTranswift(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.transwift.findUnique({
+                    where: { id: req.params.id },
+                    include: {
+                        student: { include: { program: true } },
+                        issuer: true,
+                        transact: { include: { transtype: true } }
+                    }
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no record found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    postTranswift(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.transwift.create({
+                    data: Object.assign({}, req.body),
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    updateTranswift(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.transwift.update({
+                    where: {
+                        id: req.params.id
+                    },
+                    data: Object.assign({}, req.body)
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    deleteTranswift(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const resp = yield ais.transwift.delete({
                     where: { id: req.params.id }
                 });
                 if (resp) {
@@ -3999,7 +5252,7 @@ class AisController {
                 //  const users = require('../../util/users.json');
                 //  const jobs = require('../../util/job.json');
                 //  const scores = require('../../util/_calendar.json');
-                //const scores = require('../../util/_scheme.json');
+                //const scores = require('../../util/_graduate.json');
                 //  const scores = require('../../util/units.json');
                 // const courses = require('../../util/aucc_courses.json');
                 // const courses = require('../../util/courses.json');

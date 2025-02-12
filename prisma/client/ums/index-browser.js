@@ -305,9 +305,6 @@ exports.Prisma.StudentScalarFieldEnum = {
   completeStatus: 'completeStatus',
   completeType: 'completeType',
   graduateStatus: 'graduateStatus',
-  graduateId: 'graduateId',
-  graduateCgpa: 'graduateCgpa',
-  graduateCertNo: 'graduateCertNo',
   instituteEmail: 'instituteEmail',
   instituteAffliate: 'instituteAffliate',
   flagPardon: 'flagPardon',
@@ -375,6 +372,7 @@ exports.Prisma.ActivityRegisterScalarFieldEnum = {
   indexno: 'indexno',
   courses: 'courses',
   credits: 'credits',
+  semesterNum: 'semesterNum',
   dump: 'dump',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
@@ -410,7 +408,6 @@ exports.Prisma.ActivityProgchangeScalarFieldEnum = {
 exports.Prisma.ActivityDeferScalarFieldEnum = {
   id: 'id',
   sessionId: 'sessionId',
-  studentId: 'studentId',
   indexno: 'indexno',
   semesterNum: 'semesterNum',
   reason: 'reason',
@@ -508,9 +505,7 @@ exports.Prisma.SheetScalarFieldEnum = {
 exports.Prisma.TranswiftScalarFieldEnum = {
   id: 'id',
   studentId: 'studentId',
-  title: 'title',
-  type: 'type',
-  reference: 'reference',
+  transactId: 'transactId',
   applicant: 'applicant',
   receipient: 'receipient',
   quantity: 'quantity',
@@ -522,20 +517,29 @@ exports.Prisma.TranswiftScalarFieldEnum = {
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.GraduationScalarFieldEnum = {
+exports.Prisma.GraduateSessionScalarFieldEnum = {
   id: 'id',
   title: 'title',
+  description: 'description',
   start: 'start',
   end: 'end',
-  period: 'period',
-  graduants: 'graduants',
   default: 'default',
   status: 'status',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
 
-exports.Prisma.ResessionScalarFieldEnum = {
+exports.Prisma.GraduateScalarFieldEnum = {
+  id: 'id',
+  sessionId: 'sessionId',
+  indexno: 'indexno',
+  cgpa: 'cgpa',
+  certNo: 'certNo',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ResitSessionScalarFieldEnum = {
   id: 'id',
   title: 'title',
   start: 'start',
@@ -549,7 +553,7 @@ exports.Prisma.ResessionScalarFieldEnum = {
 
 exports.Prisma.ResitScalarFieldEnum = {
   id: 'id',
-  resitSessionId: 'resitSessionId',
+  sessionId: 'sessionId',
   registerSessionId: 'registerSessionId',
   trailSessionId: 'trailSessionId',
   schemeId: 'schemeId',
@@ -562,6 +566,9 @@ exports.Prisma.ResitScalarFieldEnum = {
   paid: 'paid',
   actionType: 'actionType',
   actionMeta: 'actionMeta',
+  registeredAt: 'registeredAt',
+  entryAt: 'entryAt',
+  approvedAt: 'approvedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };
@@ -1471,6 +1478,7 @@ exports.scoreType = exports.$Enums.scoreType = {
 exports.receiver = exports.$Enums.receiver = {
   APPLICANT: 'APPLICANT',
   FRESHER: 'FRESHER',
+  FINAL: 'FINAL',
   STUDENT: 'STUDENT',
   UNDERGRAD: 'UNDERGRAD',
   POSTGRAD: 'POSTGRAD',
@@ -1480,13 +1488,6 @@ exports.receiver = exports.$Enums.receiver = {
   DEAN: 'DEAN',
   ASSESSOR: 'ASSESSOR',
   DEBTOR: 'DEBTOR'
-};
-
-exports.serviceType = exports.$Enums.serviceType = {
-  ATTESTATION: 'ATTESTATION',
-  PROFICIENCY: 'PROFICIENCY',
-  TRANSCRIPT: 'TRANSCRIPT',
-  INTRODUCTORY: 'INTRODUCTORY'
 };
 
 exports.pickMode = exports.$Enums.pickMode = {
@@ -1625,8 +1626,9 @@ exports.Prisma.ModelName = {
   letter: 'letter',
   sheet: 'sheet',
   transwift: 'transwift',
-  graduation: 'graduation',
-  resession: 'resession',
+  graduateSession: 'graduateSession',
+  graduate: 'graduate',
+  resitSession: 'resitSession',
   resit: 'resit',
   bankacc: 'bankacc',
   bill: 'bill',

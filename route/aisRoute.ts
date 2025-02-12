@@ -111,7 +111,6 @@ class AisRoute {
        this.router.patch('/backlogs/:id', [verifyToken], this.controller.updateBacklog);
        this.router.delete('/backlogs/:id', [verifyToken], this.controller.deleteBacklog);
        
-      
        /* Progression */
        this.router.get('/progression', [verifyToken], this.controller.fetchProgressions);
        this.router.get('/progression/:id', [verifyToken], this.controller.fetchProgression);
@@ -126,39 +125,91 @@ class AisRoute {
        this.router.patch('/deferments/:id', [verifyToken], this.controller.updateDeferment);
        this.router.delete('/deferments/:id', [verifyToken], this.controller.deleteDeferment);
 
-      /* Transwift */
-      this.router.get('/transwifts', [verifyToken], this.controller.fetchSchemes);
-      this.router.get('/transwifts/list', [verifyToken], this.controller.fetchSchemeList);
-      this.router.get('/transwifts/:id', [verifyToken], this.controller.fetchScheme);
-      this.router.post('/transwifts', [verifyToken], this.controller.postScheme);
-      this.router.patch('/transwifts/:id', [verifyToken], this.controller.updateScheme);
-      this.router.delete('/transwifts/:id', [verifyToken], this.controller.deleteScheme);
-       
       /* Circulars */
-      this.router.get('/circulars', [verifyToken], this.controller.fetchSchemes);
-      this.router.get('/circulars/list', [verifyToken], this.controller.fetchSchemeList);
-      this.router.get('/circulars/:id', [verifyToken], this.controller.fetchScheme);
-      this.router.post('/circulars', [verifyToken], this.controller.postScheme);
-      this.router.patch('/circulars/:id', [verifyToken], this.controller.updateScheme);
-      this.router.delete('/circulars/:id', [verifyToken], this.controller.deleteScheme);
+       this.router.get('/circulars', [verifyToken], this.controller.fetchSchemes);
+       this.router.get('/circulars/list', [verifyToken], this.controller.fetchSchemeList);
+       this.router.get('/circulars/:id', [verifyToken], this.controller.fetchScheme);
+       this.router.post('/circulars', [verifyToken], this.controller.postScheme);
+       this.router.patch('/circulars/:id', [verifyToken], this.controller.updateScheme);
+       this.router.delete('/circulars/:id', [verifyToken], this.controller.deleteScheme);
        
+       /* Service Letters */
+       this.router.get('/letters', [verifyToken], this.controller.fetchLetters);
+       this.router.get('/letters/:id', [verifyToken], this.controller.fetchLetter);
+      //  this.router.post('/letters/approve', [verifyToken], this.controller.approveLetter);
+       this.router.post('/letters', [verifyToken], this.controller.postLetter);
+       this.router.patch('/letters/:id', [verifyToken], this.controller.updateLetter);
+       this.router.delete('/letters/:id', [verifyToken], this.controller.deleteLetter);
+      
+      /* Transwift */
+      this.router.get('/transwifts', [verifyToken], this.controller.fetchTranswifts);
+      this.router.get('/transwifts/list', [verifyToken], this.controller.fetchTranswiftList);
+      this.router.get('/transwifts/:id', [verifyToken], this.controller.fetchTranswift);
+      this.router.post('/transwifts', [verifyToken], this.controller.postTranswift);
+      this.router.patch('/transwifts/:id', [verifyToken], this.controller.updateTranswift);
+      this.router.delete('/transwifts/:id', [verifyToken], this.controller.deleteTranswift);
+       
+     
+      /////////////////////////////////////////////////////////////////////////////////////
+      // # Resit Session must be Active and Default to allow generation of list of registered.
+      // # Resit registration date must be before Resit Exam start period.
+      // ###### CONDITIONS #######
+      // # Resit fee must be paid for number of papers to be registered, and to set paid status
+      // # Resit registration must be completed to set sessionId, registerSessionId, registeredAt
+      // # Bulk entry form must be used to enter scores for resit session and status set to taken for scores (non-empty)
+      // # Taken status is set if student has registered resit and scores has been entered. ( Not just register )
+      /////////////////////////////////////////////////////////////////////////////////////
+      /* Resit Sessions */
+      this.router.get('/resit-sessions', [verifyToken], this.controller.fetchResitSessions);
+      this.router.get('/resit-sessions/:id/list', [verifyToken], this.controller.fetchResitSessionList);
+      this.router.get('/resit-sessions/:id', [verifyToken], this.controller.fetchResitSession);
+      this.router.post('/resit-sessions', [verifyToken], this.controller.postResitSession);
+      this.router.post('/resit-sessions/save', [verifyToken], this.controller.saveResitSession);
+      this.router.patch('/resit-sessions/:id', [verifyToken], this.controller.updateResitSession);
+      this.router.delete('/resit-sessions/:id', [verifyToken], this.controller.deleteResitSession);
+      
       /* Resit */
-      this.router.get('/resits', [verifyToken], this.controller.fetchSchemes);
-      this.router.get('/resits/list', [verifyToken], this.controller.fetchSchemeList);
-      this.router.get('/resits/:id', [verifyToken], this.controller.fetchScheme);
-      this.router.post('/resits', [verifyToken], this.controller.postScheme);
-      this.router.patch('/resits/:id', [verifyToken], this.controller.updateScheme);
-      this.router.delete('/resits/:id', [verifyToken], this.controller.deleteScheme);
+      this.router.get('/resits', [verifyToken], this.controller.fetchResits);
+      this.router.get('/resits/:id', [verifyToken], this.controller.fetchResit);
+      this.router.post('/resits', [verifyToken], this.controller.postResit);
+      this.router.patch('/resits/:id', [verifyToken], this.controller.updateResit);
+      this.router.delete('/resits/:id', [verifyToken], this.controller.deleteResit);
         
-
+      /////////////////////////////////////////////////////////////////////////////////////
+      // # Graduations Session must be Active and Default to allow generation of list.
+      // # Graduation List generation must be not be after graduation end period.
+      // # Generation must come with timestamp to know when each graduate was processed.
+      // # Generated list must come with total fees balance - show debt status
+      // ###### CONDITIONS #######
+      // # No Pending Resit
+      // # Must have Completed Minimum Program Total Credits
+      // # Must have Current Semester Level same as Maximum Program Semester Level
+      /////////////////////////////////////////////////////////////////////////////////////
+      /* Graduation Sessions */
+      this.router.get('/graduate-sessions', [verifyToken], this.controller.fetchGraduateSessions);
+      this.router.get('/graduate-sessions/:id/generate', [verifyToken], this.controller.generateGraduateSessionList);
+      this.router.get('/graduate-sessions/:id/list', [verifyToken], this.controller.fetchGraduateSessionList);
+      this.router.get('/graduate-sessions/:id', [verifyToken], this.controller.fetchGraduateSession);
+      this.router.post('/graduate-sessions', [verifyToken], this.controller.postGraduateSession);
+      this.router.patch('/graduate-sessions/:id', [verifyToken], this.controller.updateGraduateSession);
+      this.router.delete('/graduate-sessions/:id', [verifyToken], this.controller.deleteGraduateSession);
+        
        /* Graduations */
-       this.router.get('/graduations', [verifyToken], this.controller.fetchSchemes);
-       this.router.get('/graduations/list', [verifyToken], this.controller.fetchSchemeList);
-       this.router.get('/graduations/:id', [verifyToken], this.controller.fetchScheme);
-       this.router.post('/graduations', [verifyToken], this.controller.postScheme);
-       this.router.patch('/graduations/:id', [verifyToken], this.controller.updateScheme);
-       this.router.delete('/graduations/:id', [verifyToken], this.controller.deleteScheme);
+       this.router.get('/graduates', [verifyToken], this.controller.fetchGraduates);
+       this.router.get('/graduates/:id', [verifyToken], this.controller.fetchGraduate);
+       this.router.post('/graduates', [verifyToken], this.controller.postGraduate);
+       this.router.patch('/graduates/:id', [verifyToken], this.controller.updateGraduate);
+       this.router.delete('/graduates/:id', [verifyToken], this.controller.deleteGraduate);
          
+
+       /* Circulars */
+      this.router.get('/notices', [verifyToken], this.controller.fetchNotices);
+      this.router.get('/notices/:id', [verifyToken], this.controller.fetchNotice);
+      this.router.post('/notices/send', [verifyToken], this.controller.sendNotice);
+      this.router.post('/notices', [verifyToken], this.controller.postNotice);
+      this.router.patch('/notices/:id', [verifyToken], this.controller.updateNotice);
+      this.router.delete('/notices/:id', [verifyToken], this.controller.deleteNotice);
+      
  
 
        /* Staff */

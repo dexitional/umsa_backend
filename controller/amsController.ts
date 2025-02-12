@@ -1582,11 +1582,16 @@ export default class AmsController {
          // Results 
          const resp = await Promise.all(data?.map(async(row:any) => {
             const { id,certCategoryId } = row;
-            delete row?.id; delete row?.certCategoryId; 
+            delete row?.id; 
+            delete row?.certCategoryId; 
+            delete row?.grades; 
+
             // Grades
             const newGrades = row.grades.map((item:any) => {
                const { resultId,gradeWeightId,subjectId } = item;
-               delete item?.resultId; delete item?.gradeWeightId; delete item?.subjectId; 
+               delete item?.resultId; 
+               delete item?.gradeWeightId; 
+               delete item?.subjectId; 
                return ({
                   ...item, 
                   ...resultId && ({ result: { connect: { id: resultId }}}),

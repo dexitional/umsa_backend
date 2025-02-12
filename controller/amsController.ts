@@ -1581,7 +1581,7 @@ export default class AmsController {
          
          // Results 
          const resp = await Promise.all(data?.map(async(row:any) => {
-            const { id,certCategoryId,grades } = row;
+            const { certCategoryId,grades } = row;
             delete row?.id; 
             delete row?.certCategoryId; 
             delete row?.grades; 
@@ -1616,7 +1616,7 @@ export default class AmsController {
             return await ams.stepResult.createMany({
                data: { 
                   ...row, 
-                  ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
+                  ...certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
                   grades: { create: newGrades }
                }
             })

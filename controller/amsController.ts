@@ -1595,7 +1595,7 @@ export default class AmsController {
                })
             })
             return await ams.stepResult.upsert({
-               where: { id: (id || '') },
+               where: { id: (id ?? '') },
                create: { 
                   ...row, 
                   ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),

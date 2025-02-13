@@ -4562,7 +4562,7 @@ async deleteTranswift(req: Request,res: Response) {
 
   /* App Roles */
 
-   async fetchARoleList(req: Request,res: Response) {
+ async fetchARoleList(req: Request,res: Response) {
       try {
          const resp = await ais.appRole.findMany({
             where: { status: true },
@@ -4578,11 +4578,11 @@ async deleteTranswift(req: Request,res: Response) {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-  }
+}
   
   /* User Roles */
 
-  async fetchURoleList(req: Request,res: Response) {
+ async fetchURoleList(req: Request,res: Response) {
    try {
      const { staffId } = req.body
      const resp = await ais.userRole.findMany({
@@ -4599,10 +4599,10 @@ async deleteTranswift(req: Request,res: Response) {
        console.log(error)
        return res.status(500).json(error) 
    }
-}
+ }
 
 
-   async fetchURoles(req: Request,res: Response) {
+ async fetchURoles(req: Request,res: Response) {
       const { page = 1, pageSize = 6, keyword = '' } :any = req.query;
       const offset = (page - 1) * pageSize;
       let searchCondition = { }
@@ -4642,7 +4642,7 @@ async deleteTranswift(req: Request,res: Response) {
          console.log(error)
          return res.status(500).json({ message: error.message }) 
       }
-  }
+ }
 
   
   async fetchURole(req: Request,res: Response) {

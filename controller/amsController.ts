@@ -590,6 +590,7 @@ export default class AmsController {
                ...(searchCondition),
                skip: offset,
                take: Number(pageSize),
+               orderBy: { submittedAt:'desc'},
                include: {
                   stage: { include: { category:true }},
                   applyType: true,
@@ -791,6 +792,7 @@ export default class AmsController {
                ...(searchCondition),
                skip: offset,
                take: Number(pageSize),
+               orderBy: { createdAt:'desc'},
                include: {
                   admission: true, choice1: { include: { program: true }}, choice2: { include: { program: true }}, profile:true, stage: true, applyType: true, category: true 
                }
@@ -1101,7 +1103,7 @@ export default class AmsController {
             })
            
             // Send Applicant Notification
-            const msg = `Congratulations! You have been granted an admission into AUCC, Your student portal access is Username: ${instituteEmail}, Password: ${password}`
+            const msg = `Congratulations ${studentData?.fname}! You have been admitted into AUCB, Kindly visit https://portal.aucb.edu.gh to print your admission letter. Your AUCB student portal access is Username: ${instituteEmail}, Password: ${password}`
             sms(phone,msg);
            
             // Return Response

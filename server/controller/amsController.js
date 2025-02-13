@@ -1074,7 +1074,7 @@ class AmsController {
                         data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, fresherData), admissionId && ({ admission: { connect: { id: admissionId } } })), programId && ({ program: { connect: { id: programId } } })), bill && ({ bill: { connect: { id: bill === null || bill === void 0 ? void 0 : bill.id } } })), sessionId && ({ session: { connect: { id: sessionId } } })), categoryId && ({ category: { connect: { id: categoryId } } })), serial && ({ student: { connect: { id: serial } } })),
                     });
                     // Send Applicant Notification
-                    const msg = `Congratulations! You have been granted an admission into AUCC, Your student portal access is Username: ${instituteEmail}, Password: ${password}`;
+                    const msg = `Congratulations ${studentData === null || studentData === void 0 ? void 0 : studentData.fname}! You have been admitted into AUCB, Kindly visit https://portal.aucb.edu.gh to print your admission letter. Your AUCB student portal access is Username: ${instituteEmail}, Password: ${password}`;
                     sms(phone, msg);
                     // Return Response
                     res.status(200).json(resp);

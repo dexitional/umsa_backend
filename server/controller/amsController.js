@@ -1557,33 +1557,32 @@ class AmsController {
                 yield ams.stepGrade.deleteMany({ where: { serial: req.body[0].serial } });
                 // Results 
                 const resp = yield Promise.all(data === null || data === void 0 ? void 0 : data.map((row) => __awaiter(this, void 0, void 0, function* () {
-                    const { id, certCategoryId } = row;
+                    const { certCategoryId, grades } = row;
                     row === null || row === void 0 ? true : delete row.id;
                     row === null || row === void 0 ? true : delete row.certCategoryId;
+                    row === null || row === void 0 ? true : delete row.grades;
                     // Grades
-                    const newGrades = row.grades.map((item) => {
+                    const newGrades = grades === null || grades === void 0 ? void 0 : grades.map((item) => {
                         const { resultId, gradeWeightId, subjectId } = item;
                         item === null || item === void 0 ? true : delete item.resultId;
                         item === null || item === void 0 ? true : delete item.gradeWeightId;
                         item === null || item === void 0 ? true : delete item.subjectId;
+                        item === null || item === void 0 ? true : delete item.id;
                         return (Object.assign(Object.assign(Object.assign(Object.assign({}, item), resultId && ({ result: { connect: { id: resultId } } })), gradeWeightId && ({ gradeWeight: { connect: { id: gradeWeightId } } })), subjectId && ({ subject: { connect: { id: subjectId } } })));
                     });
-                    // return await ams.stepResult.upsert({
-                    //    where: { id: (id ?? '') },
-                    //    create: { 
+                    return yield ams.stepResult.upsert({
+                        where: { id: '' },
+                        create: Object.assign(Object.assign(Object.assign({}, row), certCategoryId && ({ certCategory: { connect: { id: certCategoryId } } })), { grades: { create: newGrades } }),
+                        update: {}
+                    });
+                    // return await ams.stepResult.createMany({
+                    //    data: { 
                     //       ...row, 
-                    //       ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
-                    //       grades: { create: newGrades }
-                    //    },
-                    //    update: {
-                    //       ...row, 
-                    //       ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
+                    //       certCategoryId,
+                    //       // ...certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
                     //       grades: { create: newGrades }
                     //    }
                     // })
-                    return yield ams.stepResult.createMany({
-                        data: Object.assign(Object.assign(Object.assign({}, row), certCategoryId && ({ certCategory: { connect: { id: certCategoryId } } })), { grades: { createMany: newGrades } })
-                    });
                 })));
                 if (resp) {
                     res.status(200).json(resp);

@@ -1592,6 +1592,7 @@ export default class AmsController {
                delete item?.resultId; 
                delete item?.gradeWeightId; 
                delete item?.subjectId; 
+               delete item?.id;
                return ({
                   ...item, 
                   ...resultId && ({ result: { connect: { id: resultId }}}),
@@ -1599,28 +1600,24 @@ export default class AmsController {
                   ...subjectId && ({ subject: { connect: { id: subjectId }}}),
                })
             })
-            // return await ams.stepResult.upsert({
-            //    where: { id: (id ?? '') },
-            //    create: { 
+            return await ams.stepResult.upsert({
+               where: { id: '' },
+               create: { 
+                  ...row, 
+                  ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
+                  grades: { create: newGrades }
+               },
+               update: { }
+            })
+            
+            // return await ams.stepResult.createMany({
+            //    data: { 
             //       ...row, 
-            //       ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
-            //       grades: { create: newGrades }
-            //    },
-            //    update: {
-            //       ...row, 
-            //       ... certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
+            //       certCategoryId,
+            //       // ...certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
             //       grades: { create: newGrades }
             //    }
             // })
-            
-            return await ams.stepResult.createMany({
-               data: { 
-                  ...row, 
-                  certCategoryId,
-                  // ...certCategoryId && ({ certCategory: { connect: { id: certCategoryId }}}),
-                  grades: { create: newGrades }
-               }
-            })
          }))
          
          if(resp){

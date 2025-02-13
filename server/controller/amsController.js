@@ -605,7 +605,7 @@ class AmsController {
                     };
                 const resp = yield ams.$transaction([
                     ams.applicant.count(Object.assign({}, (searchCondition))),
-                    ams.applicant.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), include: {
+                    ams.applicant.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), orderBy: { submittedAt: 'desc' }, include: {
                             stage: { include: { category: true } },
                             applyType: true,
                             profile: true,
@@ -808,7 +808,7 @@ class AmsController {
                     };
                 const resp = yield ams.$transaction([
                     ams.sortedApplicant.count(Object.assign({}, (searchCondition))),
-                    ams.sortedApplicant.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), include: {
+                    ams.sortedApplicant.findMany(Object.assign(Object.assign({}, (searchCondition)), { skip: offset, take: Number(pageSize), orderBy: { createdAt: 'desc' }, include: {
                             admission: true, choice1: { include: { program: true } }, choice2: { include: { program: true } }, profile: true, stage: true, applyType: true, category: true
                         } }))
                 ]);
@@ -1074,7 +1074,7 @@ class AmsController {
                         data: Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign(Object.assign({}, fresherData), admissionId && ({ admission: { connect: { id: admissionId } } })), programId && ({ program: { connect: { id: programId } } })), bill && ({ bill: { connect: { id: bill === null || bill === void 0 ? void 0 : bill.id } } })), sessionId && ({ session: { connect: { id: sessionId } } })), categoryId && ({ category: { connect: { id: categoryId } } })), serial && ({ student: { connect: { id: serial } } })),
                     });
                     // Send Applicant Notification
-                    const msg = `Congratulations ${studentData === null || studentData === void 0 ? void 0 : studentData.fname}! You have been admitted into AUCB, Kindly visit https://portal.aucb.edu.gh to print your admission letter. Your AUCB student portal access is Username: ${instituteEmail}, Password: ${password}`;
+                    const msg = `Congratulations ${studentData === null || studentData === void 0 ? void 0 : studentData.fname}! You have been admitted into AUCB, Kindly visit https://portal.aucb.edu.gh to print your admission letter. Thank you!`;
                     sms(phone, msg);
                     // Return Response
                     res.status(200).json(resp);

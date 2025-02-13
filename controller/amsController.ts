@@ -1103,7 +1103,7 @@ export default class AmsController {
             })
            
             // Send Applicant Notification
-            const msg = `Congratulations ${studentData?.fname}! You have been admitted into AUCB, Kindly visit https://portal.aucb.edu.gh to print your admission letter. Your AUCB student portal access is Username: ${instituteEmail}, Password: ${password}`
+            const msg = `Congratulations ${studentData?.fname}! You have been admitted into AUCB, Kindly visit https://portal.aucb.edu.gh to print your admission letter. Thank you!`
             sms(phone,msg);
            
             // Return Response

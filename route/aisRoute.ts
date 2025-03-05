@@ -122,6 +122,7 @@ class AisRoute {
        this.router.get('/deferments/list', [verifyToken], this.controller.fetchDefermentList);
        this.router.get('/deferments/:id', [verifyToken], this.controller.fetchDeferment);
        this.router.post('/deferments', [verifyToken], this.controller.postDeferment);
+       this.router.patch('/deferments/:id/upgrade', [verifyToken], this.controller.upgradeDeferment);
        this.router.patch('/deferments/:id', [verifyToken], this.controller.updateDeferment);
        this.router.delete('/deferments/:id', [verifyToken], this.controller.deleteDeferment);
 
@@ -146,6 +147,7 @@ class AisRoute {
       this.router.get('/transwifts/list', [verifyToken], this.controller.fetchTranswiftList);
       this.router.get('/transwifts/:id', [verifyToken], this.controller.fetchTranswift);
       this.router.post('/transwifts', [verifyToken], this.controller.postTranswift);
+      this.router.patch('/transwifts/:id/upgrade', [verifyToken], this.controller.upgradeTranswift);
       this.router.patch('/transwifts/:id', [verifyToken], this.controller.updateTranswift);
       this.router.delete('/transwifts/:id', [verifyToken], this.controller.deleteTranswift);
        

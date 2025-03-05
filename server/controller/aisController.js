@@ -315,15 +315,13 @@ class AisController {
                     where: { indexno: st === null || st === void 0 ? void 0 : st.indexno },
                     include: {
                         //student: true,
-                        student: { select: { indexno: true, fname: true, mname: true, lname: true, id: true, program: { select: { longName: true, shortName: true } } } },
+                        student: { select: { indexno: true, fname: true, mname: true, lname: true, id: true, gender: true, entryDate: true, exitDate: true, program: { select: { longName: true, shortName: true, stype: true, category: true } } } },
                         scheme: { select: { gradeMeta: true, classMeta: true } },
-                        session: { select: { title: true, } },
+                        session: { select: { title: true, year: true, semester: true } },
                         course: { select: { title: true } },
                     },
                     orderBy: { session: { createdAt: 'asc' } }
                 });
-                console.log("ASSESSMENT: ", resp);
-                console.log("STUDENTS: ", st);
                 if (resp) {
                     // Class Awards
                     var mdata = new Map();
@@ -4204,17 +4202,16 @@ class AisController {
         return __awaiter(this, void 0, void 0, function* () {
             try {
                 let resp = yield ais.activityDefer.findUnique({
-                    where: {
-                        id: req.params.id
-                    },
+                    where: { id: req.params.id },
                     include: { student: { include: { program: true } }, session: true }
                 });
                 if (resp) {
                     // Calculate Resumption 
+                    const year = Number((0, moment_1.default)(resp.letterDate).add(resp === null || resp === void 0 ? void 0 : resp.durationInYears, "years").format("YYYY"));
+                    const academicYear = `${year}/${year + 1}`;
                     // Fetch Deferment Letter
-                    const letter = yield ais.letter.findFirst({ where: { tag: 'def' } });
-                    resp.letter = Object.assign(Object.assign({}, letter), { student: resp === null || resp === void 0 ? void 0 : resp.student });
-                    console.log(resp);
+                    const letter = yield ais.letter.findFirst({ where: { tag: resp.status == 'RESUMED' ? 'res' : 'def' } });
+                    resp.letter = Object.assign(Object.assign({}, letter), { academicYear, student: resp === null || resp === void 0 ? void 0 : resp.student });
                     // Return Response
                     res.status(200).json(resp);
                 }
@@ -4231,11 +4228,12 @@ class AisController {
     postDeferment(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const { indexno, sessionId, semesterNum, reason, durationInYears, status, start, end } = req.body;
+                const { indexno, sessionId, semesterNum, reason, durationInYears, status, start, end, letterDate } = req.body;
                 const resp = yield ais.activityDefer.create({
                     data: Object.assign(Object.assign({ semesterNum: Number(semesterNum), reason, durationInYears: Number(durationInYears), status,
                         start,
-                        end }, indexno && ({ student: { connect: { indexno } } })), sessionId && ({ session: { connect: { id: sessionId } } })),
+                        end,
+                        letterDate }, indexno && ({ student: { connect: { indexno } } })), sessionId && ({ session: { connect: { id: sessionId } } })),
                 });
                 if (resp) {
                     res.status(200).json(resp);
@@ -4253,16 +4251,52 @@ class AisController {
     updateDeferment(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const { indexno, sessionId, semesterNum, reason, durationInYears, status, start, end } = req.body;
+                let { indexno, sessionId, semesterNum, reason, durationInYears, status, start, end, letterDate } = req.body;
                 delete req.body.indexno;
                 delete req.body.sessionId;
+                let deferStatus = status == 'APPROVED' ? true : false;
+                start = ['APPROVED', 'RESUMED'].includes(status) ? (start != null ? start : new Date()) : null;
+                end = ['RESUMED'].includes(status) ? (end != null ? end : new Date()) : null;
+                console.log(start, end, status, req.body);
                 const resp = yield ais.activityDefer.update({
                     where: { id: req.params.id },
                     data: Object.assign(Object.assign({ semesterNum: Number(semesterNum), reason, durationInYears: Number(durationInYears), status,
                         start,
-                        end }, indexno && ({ student: { connect: { indexno } } })), sessionId && ({ session: { connect: { id: sessionId } } }))
+                        end,
+                        letterDate }, indexno && ({ student: { connect: { indexno } } })), sessionId && ({ session: { connect: { id: sessionId } } }))
                 });
                 if (resp) {
+                    // Update Student Status
+                    yield ais.student.update({ where: { indexno }, data: { deferStatus } });
+                    // Return Response
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    upgradeDeferment(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                let { indexno, status } = req.body;
+                let deferStatus = status == 'APPROVED' ? true : false;
+                let start = ['APPROVED'].includes(status) ? new Date() : null;
+                let end = ['RESUMED'].includes(status) ? new Date() : null;
+                console.log(start, end, status, req.body);
+                const resp = yield ais.activityDefer.update({
+                    where: { id: req.params.id },
+                    data: Object.assign(Object.assign({ status }, end && ({ end })), start && ({ start }))
+                });
+                if (resp) {
+                    // Update Student Status
+                    yield ais.student.update({ where: { indexno }, data: { deferStatus } });
+                    // Return Response
                     res.status(200).json(resp);
                 }
                 else {
@@ -4353,9 +4387,12 @@ class AisController {
     fetchLetter(req, res) {
         return __awaiter(this, void 0, void 0, function* () {
             try {
-                const resp = yield ais.letter.findUnique({
+                const resp = yield ais.letter.findFirst({
                     where: {
-                        id: req.params.id
+                        OR: [
+                            { id: req.params.id },
+                            { tag: req.params.id },
+                        ]
                     }
                 });
                 if (resp) {
@@ -4443,8 +4480,13 @@ class AisController {
                     searchCondition = {
                         where: {
                             OR: [
-                                { tag: { contains: keyword } },
-                                { title: { contains: keyword } },
+                                { student: { id: { contains: keyword } } },
+                                { student: { indexno: { contains: keyword } } },
+                                { student: { fname: { contains: keyword } } },
+                                { student: { lname: { contains: keyword } } },
+                                { issuer: { staffNo: { contains: keyword } } },
+                                { transact: { transtag: { contains: keyword } } },
+                                { transact: { transtype: { title: { contains: keyword } } } },
                             ],
                         }
                     };
@@ -4526,6 +4568,27 @@ class AisController {
                 }
                 else {
                     res.status(202).json({ message: `no records found` });
+                }
+            }
+            catch (error) {
+                console.log(error);
+                return res.status(500).json({ message: error.message });
+            }
+        });
+    }
+    upgradeTranswift(req, res) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                const {} = req.body;
+                const resp = yield ais.transwift.update({
+                    where: { id: req.params.id },
+                    data: Object.assign({}, req.body)
+                });
+                if (resp) {
+                    res.status(200).json(resp);
+                }
+                else {
+                    res.status(202).json({ message: `No records found` });
                 }
             }
             catch (error) {

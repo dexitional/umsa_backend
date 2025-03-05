@@ -296,15 +296,13 @@ export default class AisController {
                where: { indexno: st?.indexno },
                include: { 
                   //student: true,
-                  student: { select: { indexno:true, fname: true, mname: true, lname: true, id: true, program: { select: { longName: true, shortName: true } } } },
-                  scheme: { select: { gradeMeta: true,classMeta:true } },
-                  session: { select: { title: true, } },
+                  student: { select: { indexno: true, fname: true, mname: true, lname: true, id: true, gender: true, entryDate: true, exitDate: true, program: { select: { longName: true, shortName: true, stype: true, category: true } } } },
+                  scheme: { select: { gradeMeta: true, classMeta: true } },
+                  session: { select: { title: true, year: true, semester: true } },
                   course:{ select:{ title:true } },
                }, 
                orderBy: { session: { createdAt: 'asc'}}
             });
-            console.log("ASSESSMENT: ",resp)
-            console.log("STUDENTS: ", st)
             
             if(resp){ 
                // Class Awards
@@ -4181,20 +4179,18 @@ async fetchDefermentList(req: Request,res: Response) {
 async fetchDeferment(req: Request,res: Response) {
    try {
       let resp = await ais.activityDefer.findUnique({
-         where: { 
-            id: req.params.id 
-         },
+         where: {  id: req.params.id },
          include:{ student: { include: { program: true }}, session: true }
       })
       if(resp){
          // Calculate Resumption 
+         const year = Number(moment(resp.letterDate).add(resp?.durationInYears,"years").format("YYYY")); 
+         const academicYear = `${year}/${year+1}`;
 
          // Fetch Deferment Letter
-         const letter = await ais.letter.findFirst({ where: { tag: 'def' }});
-         resp.letter = { ...letter, student: resp?.student };
-
-         
-         console.log(resp)
+         const letter = await ais.letter.findFirst({ where: { tag: resp.status == 'RESUMED' ? 'res':'def' }});
+         resp.letter = { ...letter, academicYear, student: resp?.student };
+ 
          // Return Response
          res.status(200).json(resp)
       } else {
@@ -4208,7 +4204,7 @@ async fetchDeferment(req: Request,res: Response) {
 
 async postDeferment(req: Request,res: Response) {
 try {
-   const { indexno,sessionId,semesterNum,reason,durationInYears,status,start,end } = req.body;
+   const { indexno,sessionId,semesterNum,reason,durationInYears,status,start,end,letterDate } = req.body;
    const resp = await ais.activityDefer.create({
       data: {
          semesterNum: Number(semesterNum),
@@ -4217,6 +4213,7 @@ try {
          status,
          start,
          end,
+         letterDate,
          ... indexno && ({ student: { connect: { indexno }}}),
          ... sessionId && ({ session: { connect: { id: sessionId }}}),
       },
@@ -4235,10 +4232,15 @@ try {
 
 async updateDeferment(req: Request,res: Response) {
 try {
-   const { indexno,sessionId,semesterNum,reason,durationInYears,status,start,end } = req.body;
+   let { indexno,sessionId,semesterNum,reason,durationInYears,status,start,end,letterDate } = req.body;
    delete req.body.indexno;
    delete req.body.sessionId;
-
+  
+   let deferStatus = status == 'APPROVED' ? true: false;
+   start = ['APPROVED','RESUMED'].includes(status) ? ( start != null ? start : new Date()) : null;
+   end = ['RESUMED'].includes(status)  ? ( end != null ? end : new Date()) : null;
+  
+   console.log(start,end,status, req.body)
    const resp = await ais.activityDefer.update({
       where: { id: req.params.id },
       data: {
@@ -4248,11 +4250,15 @@ try {
          status,
          start,
          end,
+         letterDate,
          ... indexno && ({ student: { connect: { indexno }}}),
          ... sessionId && ({ session: { connect: { id: sessionId }}}),
       }
    })
    if(resp){
+     // Update Student Status
+     await ais.student.update({ where: { indexno }, data: { deferStatus }})
+     // Return Response
       res.status(200).json(resp)
    } else {
       res.status(202).json({ message: `No records found` })
@@ -4261,6 +4267,36 @@ try {
       console.log(error)
       return res.status(500).json({ message: error.message }) 
    }
+}
+
+async upgradeDeferment(req: Request,res: Response) {
+   try {
+      let { indexno,status } = req.body;
+      let deferStatus = status == 'APPROVED' ? true: false;
+      let start = ['APPROVED'].includes(status) ? new Date() : null;
+      let end = ['RESUMED'].includes(status)  ? new Date() : null;
+     
+      console.log(start,end,status, req.body)
+      const resp = await ais.activityDefer.update({
+         where: { id: req.params.id },
+         data: {
+            status,
+            ...end && ({ end }),
+            ...start && ({ start }),
+         }
+      })
+      if(resp){
+        // Update Student Status
+        await ais.student.update({ where: { indexno }, data: { deferStatus }})
+        // Return Response
+         res.status(200).json(resp)
+      } else {
+         res.status(202).json({ message: `No records found` })
+      }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
 }
 
 async deleteDeferment(req: Request,res: Response) {
@@ -4339,9 +4375,12 @@ async fetchLetterList(req: Request,res: Response) {
 
 async fetchLetter(req: Request,res: Response) {
    try {
-      const resp = await ais.letter.findUnique({
+      const resp = await ais.letter.findFirst({
          where: { 
-            id: req.params.id 
+            OR: [
+              { id: req.params.id },
+              { tag: req.params.id },
+            ]
          }
       })
       if(resp){
@@ -4424,8 +4463,13 @@ async deleteLetter(req: Request,res: Response) {
       if(keyword) searchCondition = { 
          where: { 
             OR: [
-               { tag: { contains: keyword }},
-               { title: { contains: keyword }},
+               { student:{ id: { contains: keyword } }},
+               { student:{ indexno: { contains: keyword } }},
+               { student:{ fname: { contains: keyword } }},
+               { student:{ lname: { contains: keyword } }},
+               { issuer:{ staffNo: { contains: keyword } }},
+               { transact:{ transtag: { contains: keyword } }},
+               { transact:{ transtype: { title: { contains: keyword }} }},
             ],
          }
       }
@@ -4517,12 +4561,11 @@ try {
    }
 }
 
-async updateTranswift(req: Request,res: Response) {
+async upgradeTranswift(req: Request,res: Response) {
 try {
+   const {} = req.body;
    const resp = await ais.transwift.update({
-      where: { 
-         id: req.params.id 
-      },
+      where: { id: req.params.id },
       data: {
          ...req.body,
       }
@@ -4536,6 +4579,28 @@ try {
       console.log(error)
       return res.status(500).json({ message: error.message }) 
    }
+}
+
+
+async updateTranswift(req: Request,res: Response) {
+   try {
+      const resp = await ais.transwift.update({
+         where: { 
+            id: req.params.id 
+         },
+         data: {
+            ...req.body,
+         }
+      })
+      if(resp){
+         res.status(200).json(resp)
+      } else {
+         res.status(202).json({ message: `No records found` })
+      }
+      } catch (error: any) {
+         console.log(error)
+         return res.status(500).json({ message: error.message }) 
+      }
 }
 
 async deleteTranswift(req: Request,res: Response) {

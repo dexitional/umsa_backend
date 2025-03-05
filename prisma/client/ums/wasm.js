@@ -410,6 +410,7 @@ exports.Prisma.ActivityDeferScalarFieldEnum = {
   sessionId: 'sessionId',
   indexno: 'indexno',
   semesterNum: 'semesterNum',
+  letterDate: 'letterDate',
   reason: 'reason',
   durationInYears: 'durationInYears',
   status: 'status',
@@ -513,6 +514,8 @@ exports.Prisma.TranswiftScalarFieldEnum = {
   version: 'version',
   status: 'status',
   issuerId: 'issuerId',
+  printedAt: 'printedAt',
+  completedAt: 'completedAt',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 };

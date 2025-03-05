@@ -960,8 +960,8 @@ export default class AmsController {
                admission: { default: true },
                OR: [
                   { serial: { contains: keyword } },
-                  { sessionMode: { contains: keyword } },
-                  { program: { title: { contains: keyword }} },
+                  //{ sessionMode: { contains: keyword } },
+                  { program: { shortName: { contains: keyword }} },
                   { category: { title: { contains: keyword }} },
                ],
             }
@@ -1104,7 +1104,7 @@ export default class AmsController {
            
             // Send Applicant Notification
             const msg = `Congratulations ${studentData?.fname}! You have been admitted into AUCB, Kindly visit https://portal.aucb.edu.gh to print your admission letter. Thank you!`
-            sms(phone,msg);
+            //await sms(phone,msg);
            
             // Return Response
             res.status(200).json(resp)

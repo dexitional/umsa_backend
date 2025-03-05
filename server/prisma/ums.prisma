@@ -689,8 +689,9 @@ model activityProgchange {
 model activityDefer {
   id              String      @id @default(uuid())
   sessionId       String?
-  indexno         String?      @db.VarChar(50)
+  indexno         String?     @db.VarChar(50)
   semesterNum     Int
+  letterDate      DateTime?
   reason          String?     @db.VarChar(255)
   durationInYears Int         @default(1)
   status          deferStatus @default(PENDED)
@@ -702,7 +703,7 @@ model activityDefer {
   updatedAt       DateTime    @updatedAt
 
   session session? @relation(fields: [sessionId], references: [id])
-  student student?  @relation(fields: [indexno], references: [indexno])
+  student student? @relation(fields: [indexno], references: [indexno])
 
   @@map("ais_activity_defer")
 }
@@ -821,18 +822,20 @@ model sheet {
 }
 
 model transwift {
-  id         String          @id @default(uuid())
-  studentId  String
-  transactId String          @unique
-  applicant  String?         @db.VarChar(350)
-  receipient String?         @db.Text
-  quantity   Int             @default(0)
-  mode       pickMode        @default(PICKUP)
-  version    transwiftType   @default(SOFTCOPY)
-  status     transwiftStatus @default(PENDED)
-  issuerId   String?
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
+  id          String          @id @default(uuid())
+  studentId   String
+  transactId  String          @unique
+  applicant   String?         @db.VarChar(350)
+  receipient  String?         @db.Text
+  quantity    Int             @default(0)
+  mode        pickMode        @default(PICKUP)
+  version     transwiftType   @default(SOFTCOPY)
+  status      transwiftStatus @default(PENDED)
+  issuerId    String?
+  printedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   student  student?     @relation(fields: [studentId], references: [id])
   transact transaction? @relation(fields: [transactId], references: [id])
